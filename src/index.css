@@ -1,26 +1,31 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
     --bg-page: #f8fafc;
     --text-primary: #0f172a;
-    --glass-bg: rgba(255, 255, 255, 0.72);
-    --glass-border: rgba(226, 232, 240, 0.85);
-    --glass-card: rgba(255, 255, 255, 0.85);
+    --glass-bg: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(203, 213, 225, 0.9);
+    --glass-card: rgba(255, 255, 255, 0.92);
   }
 
   .dark {
     --bg-page: #011d32;
     --text-primary: #f8fafc;
-    --glass-bg: rgba(1, 29, 50, 0.75);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-card: rgba(2, 38, 64, 0.78);
+    --glass-bg: rgba(3, 28, 49, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --glass-card: rgba(6, 39, 68, 0.94);
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--bg-page);
+    color: var(--text-primary);
     font-family: 'Outfit', system-ui, -apple-system, sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   .font-display {
@@ -29,7 +34,7 @@
   }
 }
 
-/* Apple Liquid Glass Utilities */
+/* Apple Liquid Glass Utilities with high contrast & depth */
 .liquid-glass {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
@@ -42,10 +47,64 @@
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 .liquid-glass-glow {
-  box-shadow: 0 10px 40px -10px rgba(197, 160, 89, 0.25);
+  box-shadow: 0 10px 40px -10px rgba(197, 160, 89, 0.35);
+}
+
+/* Dark mode typography and contrast enhancements */
+.dark {
+  /* Elevate secondary text to WCAG AA 4.5:1+ contrast on #011d32 / #062744 */
+  & .text-slate-500 {
+    color: #94a3b8;
+  }
+  & .text-slate-400 {
+    color: #cbd5e1;
+  }
+  & .text-slate-600 {
+    color: #e2e8f0;
+  }
+  & .border-slate-800 {
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+  & .border-slate-700 {
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+  & .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  /* Form controls in dark mode: crisp contrast */
+  & input,
+  & textarea,
+  & select {
+    background-color: #02253f !important;
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
+  }
+  & input:focus,
+  & textarea:focus,
+  & select:focus {
+    border-color: #c5a059 !important;
+    box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.25) !important;
+  }
+  & input::placeholder,
+  & textarea::placeholder {
+    color: #94a3b8 !important;
+  }
+  & select option {
+    background-color: #02253f;
+    color: #ffffff;
+  }
+
+  /* Table headers and rows in dark mode */
+  & thead.bg-slate-900\/70,
+  & thead.bg-slate-100\/70 {
+    background-color: #02223a !important;
+    color: #cbd5e1 !important;
+  }
 }
 
 /* Custom smooth scrollbars */

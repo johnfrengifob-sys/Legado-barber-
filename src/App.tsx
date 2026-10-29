@@ -19,6 +19,26 @@ import { PinModal } from './components/PinModal';
 import { ClientPortal } from './components/ClientPortal';
 import { BarberPanel } from './components/BarberPanel';
 import { AdminPanel } from './components/AdminPanel';
+import {
+  seedFirestoreIfEmpty,
+  subscribeToBarbers,
+  saveBarberToFirestore,
+  deleteBarberFromFirestore,
+  subscribeToClients,
+  saveClientToFirestore,
+  subscribeToAppointments,
+  saveAppointmentToFirestore,
+  subscribeToSales,
+  saveSaleToFirestore,
+  subscribeToExpenses,
+  saveExpenseToFirestore,
+  subscribeToInventory,
+  saveInventoryItemToFirestore,
+  subscribeToPromotions,
+  savePromotionToFirestore,
+  subscribeToAuth,
+  logoutUser
+} from './services/firebaseService';
 
 export default function App() {
   // Theme State (light, dark, system)
@@ -34,11 +54,12 @@ export default function App() {
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [pinTarget, setPinTarget] = useState<'barberos' | 'admin'>('barberos');
 
-  // Persistent Business State in localStorage
-  const [services, setServices] = useState<Service[]>(() => {
-    const saved = localStorage.getItem('legado_services_v2');
-    return saved ? JSON.parse(saved) : OFFICIAL_SERVICES;
-  });
+  // Firebase auth & cloud state
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [isCloudSynced, setIsCloudSynced] = useState(true);
+
+  // Persistent Business State in localStorage & Firebase
+  const [services] = useState<Service[]>(OFFICIAL_SERVICES);
 
   const [barbers, setBarbers] = useState<Barber[]>(() => {
     const saved = localStorage.getItem('legado_barbers_v2');
@@ -75,6 +96,66 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Initialize and Seed Firestore if first startup
+  useEffect(() => {
+    seedFirestoreIfEmpty();
+  }, []);
+
+  // Subscribe to Firebase Auth
+  useEffect(() => {
+    const unsubAuth = subscribeToAuth((user) => {
+      setCurrentUserEmail(user?.email || null);
+    });
+    return () => unsubAuth();
+  }, []);
+
+  // Subscribe to Firebase Firestore Collections in Real-Time
+  useEffect(() => {
+    try {
+      const unsubBarbers = subscribeToBarbers((data) => {
+        setBarbers(data);
+        setIsCloudSynced(true);
+      });
+      const unsubClients = subscribeToClients((data) => {
+        setClients(data);
+        setIsCloudSynced(true);
+      });
+      const unsubAppts = subscribeToAppointments((data) => {
+        setAppointments(data);
+        setIsCloudSynced(true);
+      });
+      const unsubSales = subscribeToSales((data) => {
+        setSales(data);
+        setIsCloudSynced(true);
+      });
+      const unsubExpenses = subscribeToExpenses((data) => {
+        setExpenses(data);
+        setIsCloudSynced(true);
+      });
+      const unsubInventory = subscribeToInventory((data) => {
+        setInventory(data);
+        setIsCloudSynced(true);
+      });
+      const unsubPromotions = subscribeToPromotions((data) => {
+        setPromotions(data);
+        setIsCloudSynced(true);
+      });
+
+      return () => {
+        unsubBarbers();
+        unsubClients();
+        unsubAppts();
+        unsubSales();
+        unsubExpenses();
+        unsubInventory();
+        unsubPromotions();
+      };
+    } catch (e) {
+      console.warn('Real-time Firestore listeners running in local mode:', e);
+      setIsCloudSynced(false);
+    }
+  }, []);
+
   // Theme Sync effect (support Light, Dark, System)
   useEffect(() => {
     localStorage.setItem('legado_theme', theme);
@@ -105,11 +186,7 @@ export default function App() {
     }
   }, [theme]);
 
-  // Sync state to localStorage
-  useEffect(() => {
-    localStorage.setItem('legado_services_v2', JSON.stringify(services));
-  }, [services]);
-
+  // Sync state to localStorage as offline cache
   useEffect(() => {
     localStorage.setItem('legado_barbers_v2', JSON.stringify(barbers));
   }, [barbers]);
@@ -231,23 +308,39 @@ export default function App() {
       setClients(prev => [updatedClient, ...prev]);
     }
 
+    // Save to Firestore
+    saveClientToFirestore(updatedClient).catch((err) => {
+      console.warn('Could not sync client to Firestore:', err);
+    });
+
     return { updatedClient, rewardUnlocked };
   };
 
   // Appointments Handlers
   const handleBookAppointment = (apt: Appointment) => {
     setAppointments(prev => [apt, ...prev]);
+    saveAppointmentToFirestore(apt).catch((err) => {
+      console.warn('Could not sync appointment to Firestore:', err);
+    });
   };
 
   const handleUpdateAppointmentStatus = (appointmentId: string, status: Appointment['status']) => {
-    setAppointments(prev =>
-      prev.map(apt => (apt.id === appointmentId ? { ...apt, status } : apt))
-    );
+    setAppointments(prev => {
+      const updatedList = prev.map(apt => (apt.id === appointmentId ? { ...apt, status } : apt));
+      const targetApt = updatedList.find(a => a.id === appointmentId);
+      if (targetApt) {
+        saveAppointmentToFirestore(targetApt).catch(console.warn);
+      }
+      return updatedList;
+    });
   };
 
   // Sales (POS) Handlers
   const handleAddSale = (sale: Sale) => {
     setSales(prev => [sale, ...prev]);
+    saveSaleToFirestore(sale).catch((err) => {
+      console.warn('Could not sync sale to Firestore:', err);
+    });
 
     // Optional inventory decrement for products in sale
     if (sale.extraProducts.length > 0) {
@@ -258,7 +351,9 @@ export default function App() {
                  item.name.toLowerCase().includes(e.name.toLowerCase())
           );
           if (matched) {
-            return { ...item, stock: Math.max(0, item.stock - 1) };
+            const updatedItem = { ...item, stock: Math.max(0, item.stock - 1) };
+            saveInventoryItemToFirestore(updatedItem).catch(console.warn);
+            return updatedItem;
           }
           return item;
         })
@@ -269,48 +364,82 @@ export default function App() {
   // Expenses Handlers
   const handleAddExpense = (expense: Expense) => {
     setExpenses(prev => [expense, ...prev]);
+    saveExpenseToFirestore(expense).catch((err) => {
+      console.warn('Could not sync expense to Firestore:', err);
+    });
   };
 
   // Settle Barber Commissions
   const handleSettleBarberCommissions = (barberId: string) => {
-    setSales(prev =>
-      prev.map(s => (s.barberId === barberId ? { ...s, isCommissionPaid: true } : s))
-    );
+    setSales(prev => {
+      const updatedSales = prev.map(s => {
+        if (s.barberId === barberId) {
+          const settled = { ...s, isCommissionPaid: true };
+          saveSaleToFirestore(settled).catch(console.warn);
+          return settled;
+        }
+        return s;
+      });
+      return updatedSales;
+    });
   };
 
   // Promotion Broadcast Handlers
   const handleSendBroadcast = (broadcast: PromotionBroadcast) => {
     setPromotions(prev => [broadcast, ...prev]);
+    savePromotionToFirestore(broadcast).catch((err) => {
+      console.warn('Could not sync promotion to Firestore:', err);
+    });
   };
 
   // Inventory Handlers
   const handleUpdateInventoryStock = (itemId: string, newStock: number) => {
-    setInventory(prev =>
-      prev.map(item => (item.id === itemId ? { ...item, stock: newStock } : item))
-    );
+    setInventory(prev => {
+      const updated = prev.map(item => {
+        if (item.id === itemId) {
+          const next = { ...item, stock: newStock };
+          saveInventoryItemToFirestore(next).catch(console.warn);
+          return next;
+        }
+        return item;
+      });
+      return updated;
+    });
   };
 
   const handleAddInventoryItem = (item: InventoryItem) => {
     setInventory(prev => [...prev, item]);
+    saveInventoryItemToFirestore(item).catch((err) => {
+      console.warn('Could not sync inventory to Firestore:', err);
+    });
   };
 
   // Barbers Management Handlers
   const handleAddBarber = (newBarber: Barber) => {
     setBarbers(prev => [...prev, newBarber]);
+    saveBarberToFirestore(newBarber).catch((err) => {
+      console.warn('Could not sync barber to Firestore:', err);
+    });
   };
 
   const handleDeleteBarber = (barberId: string) => {
     setBarbers(prev => prev.filter(b => b.id !== barberId));
+    deleteBarberFromFirestore(barberId).catch((err) => {
+      console.warn('Could not delete barber from Firestore:', err);
+    });
   };
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
-      {/* Top Navbar with Logo, Breadcrumbs, and Theme Switcher (Claro/Oscuro/Sistema) */}
+      {/* Top Navbar with Logo, Breadcrumbs, Theme Switcher and Firebase status */}
       <TopNav
         currentPanel={currentPanel}
         onNavigateHome={() => setCurrentPanel('home')}
         activeTheme={theme}
         onChangeTheme={setTheme}
+        isCloudSynced={isCloudSynced}
+        currentUserEmail={currentUserEmail}
+        onLogout={logoutUser}
       />
 
       {/* Main View Router */}
@@ -363,7 +492,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Secure PIN Keypad Modal (PIN Barberos: 2346 | PIN Admin: 3546) */}
+      {/* Secure PIN Keypad Modal (PIN Barberos: 2346 | PIN Admin: 3546) with Google Auth */}
       <PinModal
         isOpen={pinModalOpen}
         onClose={() => setPinModalOpen(false)}

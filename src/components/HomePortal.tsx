@@ -29,12 +29,12 @@ export const HomePortal: React.FC<HomePortalProps> = ({
         </div>
 
         <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#c5a059]/10 border border-[#c5a059]/30 text-xs font-bold text-[#c5a059] uppercase tracking-widest">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#c5a059]/15 border border-[#c5a059]/35 text-xs font-bold text-[#c5a059] uppercase tracking-widest shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-[#c5a059]" />
             <span>Sistema Integral de Gestión & Fidelización</span>
           </div>
 
-          <p className="text-sm sm:text-base text-slate-300 font-light leading-relaxed max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-slate-700 dark:text-slate-200 font-normal leading-relaxed max-w-2xl mx-auto">
             Bienvenido al portal central de operaciones de Legado Barber Club. Selecciona el módulo de acceso según tu rol para gestionar agendamientos, liquidaciones de barberos y ventas POS.
           </p>
         </div>
@@ -46,7 +46,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
           <h2 className="font-display font-bold text-xl sm:text-2xl text-slate-900 dark:text-white tracking-wide">
             Módulos del Sistema
           </h2>
-          <span className="text-xs text-slate-500 font-medium">
+          <span className="text-xs text-slate-500 dark:text-slate-300 font-medium">
             Selecciona tu acceso
           </span>
         </div>
@@ -55,7 +55,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
           {/* 1. Portal Clientes (Público / Sin PIN) */}
           <div
             onClick={onSelectClients}
-            className="group liquid-glass-card rounded-3xl p-7 border border-white/20 dark:border-white/10 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
+            className="group liquid-glass-card rounded-3xl p-7 border border-slate-200/80 dark:border-white/15 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
           >
             <div className="space-y-5">
               <div className="flex items-center justify-between">
@@ -71,29 +71,29 @@ export const HomePortal: React.FC<HomePortalProps> = ({
                 <h3 className="font-display font-bold text-2xl text-slate-900 dark:text-white group-hover:text-[#c5a059] transition-colors">
                   Portal Clientes
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-200 mt-2 leading-relaxed">
                   Agendamiento en línea de citas, check-in QR con calificación de 10 estrellas y recompensas automáticas con IA.
                 </p>
               </div>
 
               {/* Highlights */}
-              <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                   <Calendar className="w-3.5 h-3.5 text-[#c5a059]" />
                   <span>Reserva tu turno sin filas</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                   <QrCode className="w-3.5 h-3.5 text-[#c5a059]" />
                   <span>Asistencia QR & Calificación 1-10 ★</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                  <Award className="w-3.5 h-3.5 text-emerald-500" />
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <Award className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Corte y Limpieza Facial Gratis acumulando</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-[#c5a059]">
+            <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-white/10 flex items-center justify-between text-xs font-bold text-[#c5a059]">
               <span>Ingresar al Portal</span>
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -102,7 +102,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
           {/* 2. Panel Barberos (Protegido por PIN: 2346) */}
           <div
             onClick={onSelectBarbers}
-            className="group liquid-glass-card rounded-3xl p-7 border border-white/20 dark:border-white/10 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
+            className="group liquid-glass-card rounded-3xl p-7 border border-slate-200/80 dark:border-white/15 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
           >
             <div className="space-y-5">
               <div className="flex items-center justify-between">
@@ -119,29 +119,29 @@ export const HomePortal: React.FC<HomePortalProps> = ({
                 <h3 className="font-display font-bold text-2xl text-slate-900 dark:text-white group-hover:text-[#c5a059] transition-colors">
                   Panel Barberos
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-200 mt-2 leading-relaxed">
                   Espacio privado para John, Orian y David. Consulta tu agenda del día, servicios realizados y comisiones del 50%.
                 </p>
               </div>
 
               {/* Highlights */}
-              <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                   <Scissors className="w-3.5 h-3.5 text-[#c5a059]" />
                   <span>Selector de barbero activo</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Comisión 50% pendiente vs pagada</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                   <Calendar className="w-3.5 h-3.5 text-[#c5a059]" />
                   <span>Agenda personalizada de clientes</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-[#c5a059]">
+            <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-white/10 flex items-center justify-between text-xs font-bold text-[#c5a059]">
               <span>Desbloquear con PIN</span>
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -150,7 +150,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
           {/* 3. Panel Administrador (Protegido por PIN: 3546) */}
           <div
             onClick={onSelectAdmin}
-            className="group liquid-glass-card rounded-3xl p-7 border border-white/20 dark:border-white/10 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
+            className="group liquid-glass-card rounded-3xl p-7 border border-slate-200/80 dark:border-white/15 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
           >
             <div className="space-y-5">
               <div className="flex items-center justify-between">
@@ -167,29 +167,29 @@ export const HomePortal: React.FC<HomePortalProps> = ({
                 <h3 className="font-display font-bold text-2xl text-slate-900 dark:text-white group-hover:text-[#c5a059] transition-colors">
                   Panel Administrador
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-200 mt-2 leading-relaxed">
                   Terminal POS de ventas, gastos, liquidación de comisiones, base de datos de clientes, inventario y exportación a Excel.
                 </p>
               </div>
 
               {/* Highlights */}
-              <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                   <DollarSign className="w-3.5 h-3.5 text-[#c5a059]" />
                   <span>POS con división 50/50 y descuentos</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Liquidación de barberos & Caja Neta</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                   <Award className="w-3.5 h-3.5 text-[#c5a059]" />
                   <span>Clientes QR, Broadcast e Inventario</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-[#c5a059]">
+            <div className="pt-6 mt-6 border-t border-slate-200/60 dark:border-white/10 flex items-center justify-between text-xs font-bold text-[#c5a059]">
               <span>Desbloquear con PIN</span>
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
@@ -198,12 +198,12 @@ export const HomePortal: React.FC<HomePortalProps> = ({
       </div>
 
       {/* Social Media & Community Bar */}
-      <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-white/20 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
+      <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
         <div className="space-y-1 text-center sm:text-left">
           <div className="font-display font-bold text-base text-slate-900 dark:text-white">
             Síguenos en Nuestras Redes Oficiales
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-600 dark:text-slate-300">
             Conoce nuestras transformaciones, promociones semanales y eventos exclusivos.
           </p>
         </div>

@@ -1,0 +1,123 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return (isSignedIn() && request.auth.token.email == 'legadobarber2026@gmail.com') ||
+             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Admins metadata collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Barbers collection
+    match /barbers/{barberId} {
+      allow read: if isValidId(barberId);
+      allow create, update: if isValidId(barberId) 
+        && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 100
+        && incoming().active is bool;
+      allow delete: if isValidId(barberId);
+    }
+
+    // Clients & QR Loyalty collection
+    match /clients/{clientId} {
+      allow read: if isValidId(clientId);
+      allow create: if isValidId(clientId)
+        && incoming().clientName is string && incoming().clientName.size() > 0 && incoming().clientName.size() <= 100
+        && incoming().clientPhone is string && incoming().clientPhone.size() <= 30
+        && incoming().totalVisits is number && incoming().totalVisits >= 0;
+      allow update: if isValidId(clientId)
+        && incoming().totalVisits is number && incoming().totalVisits >= 0;
+      allow delete: if isAdmin();
+    }
+
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      allow read: if isValidId(appointmentId);
+      allow create: if isValidId(appointmentId)
+        && incoming().bookingCode is string && incoming().bookingCode.size() <= 20
+        && incoming().clientName is string && incoming().clientName.size() <= 100
+        && incoming().clientPhone is string && incoming().clientPhone.size() <= 30
+        && incoming().status in ['pendiente', 'confirmada', 'completada', 'cancelada'];
+      allow update: if isValidId(appointmentId)
+        && incoming().status in ['pendiente', 'confirmada', 'completada', 'cancelada'];
+      allow delete: if isValidId(appointmentId);
+    }
+
+    // Point of Sale (POS) & Sales collection
+    match /sales/{saleId} {
+      allow read: if isValidId(saleId);
+      allow create: if isValidId(saleId)
+        && incoming().invoiceNumber is string && incoming().invoiceNumber.size() <= 50
+        && incoming().barberName is string && incoming().barberName.size() <= 100
+        && incoming().total is number && incoming().total >= 0
+        && incoming().paymentMethod in ['efectivo', 'transferencia']
+        && incoming().isCommissionPaid is bool;
+      allow update: if isValidId(saleId)
+        && incoming().isCommissionPaid is bool;
+      allow delete: if isAdmin();
+    }
+
+    // Expenses collection
+    match /expenses/{expenseId} {
+      allow read: if isValidId(expenseId);
+      allow create: if isValidId(expenseId)
+        && incoming().description is string && incoming().description.size() <= 255
+        && incoming().amount is number && incoming().amount >= 0
+        && incoming().category is string;
+      allow update: if isValidId(expenseId)
+        && incoming().amount is number && incoming().amount >= 0;
+      allow delete: if isValidId(expenseId);
+    }
+
+    // Inventory items collection
+    match /inventory/{itemId} {
+      allow read: if isValidId(itemId);
+      allow create, update: if isValidId(itemId)
+        && incoming().name is string && incoming().name.size() <= 100
+        && incoming().price is number && incoming().price >= 0
+        && incoming().stock is number && incoming().stock >= 0;
+      allow delete: if isValidId(itemId);
+    }
+
+    // Promotions broadcast collection
+    match /promotions/{promoId} {
+      allow read: if isValidId(promoId);
+      allow create: if isValidId(promoId)
+        && incoming().title is string && incoming().title.size() <= 150
+        && incoming().message is string && incoming().message.size() <= 1500;
+      allow update, delete: if isAdmin();
+    }
+  }
+}

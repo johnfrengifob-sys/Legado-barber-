@@ -361,7 +361,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 className={`py-2.5 px-3.5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
                   isActive
                     ? 'bg-[#c5a059] text-black shadow-md'
-                    : 'bg-slate-100/70 dark:bg-slate-900/70 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200/60 dark:border-slate-800'
+                    : 'bg-slate-100/90 dark:bg-[#02253f] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white border border-slate-300/80 dark:border-white/20'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -376,25 +376,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 1. NUEVA VENTA (POS) */}
       {/* ============================================================== */}
       {activeTab === 'pos' && (
-        <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-white/20 dark:border-white/10 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+        <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-2xl space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/15 pb-4">
             <div>
               <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
                 Terminal Punto de Venta (POS)
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 {posStep === 1 ? 'Paso 1: Selección de barbero y servicios' : 'Paso 2: Resumen, cortesías y cobro'}
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs font-bold text-[#c5a059]">
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${posStep === 1 ? 'bg-[#c5a059] text-black' : 'bg-slate-200 dark:bg-slate-800'}`}>1</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${posStep === 1 ? 'bg-[#c5a059] text-black font-bold' : 'bg-slate-200 dark:bg-[#02253f] text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-white/20'}`}>1</span>
               <span>→</span>
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${posStep === 2 ? 'bg-[#c5a059] text-black' : 'bg-slate-200 dark:bg-slate-800'}`}>2</span>
+              <span className={`w-6 h-6 rounded-full flex items-center justify-center ${posStep === 2 ? 'bg-[#c5a059] text-black font-bold' : 'bg-slate-200 dark:bg-[#02253f] text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-white/20'}`}>2</span>
             </div>
           </div>
 
           {posSuccessMsg && (
-            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-bounce">
+            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-2 animate-bounce">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
               <span>{posSuccessMsg}</span>
             </div>
@@ -405,7 +405,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="space-y-6">
               {/* Barber selector */}
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider block mb-2">
                   1. Barbero que atiende:
                 </label>
                 <div className="grid grid-cols-3 gap-3">
@@ -419,7 +419,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         className={`py-3 px-4 rounded-2xl border text-center transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-[#c5a059] text-black border-[#c5a059] font-bold shadow-md'
-                            : 'bg-slate-100/70 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200'
+                            : 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-200 font-semibold hover:border-[#c5a059]/40'
                         }`}
                       >
                         <Scissors className="w-4 h-4 mx-auto mb-1" />
@@ -432,7 +432,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               {/* Client Name Optional */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
                   Nombre del Cliente (opcional):
                 </label>
                 <input
@@ -440,14 +440,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   placeholder="Ej. Andrés Gómez"
                   value={posClientName}
                   onChange={(e) => setPosClientName(e.target.value)}
-                  className="w-full rounded-xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-[#c5a059]"
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs sm:text-sm focus:outline-none focus:border-[#c5a059]"
                 />
               </div>
 
               {/* Interactive Services Cards (Esenciales, Premium, Colorimetría) */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                     2. Selección Múltiple de Servicios:
                   </label>
                   <span className="text-xs text-[#c5a059] font-bold">
@@ -457,7 +457,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {/* Esenciales */}
                 <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
+                  <span className="text-[11px] font-bold text-[#c5a059] uppercase tracking-widest block">
                     Esenciales
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -469,18 +469,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           onClick={() => handleToggleService(srv)}
                           className={`p-3 rounded-2xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-[#c5a059]/15 border-[#c5a059] text-slate-900 dark:text-white font-bold shadow-sm'
-                              : 'bg-slate-100/70 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-[#c5a059]/40'
+                              ? 'bg-[#c5a059]/20 border-[#c5a059] text-slate-900 dark:text-white font-bold shadow-sm'
+                              : 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/15 text-slate-800 dark:text-slate-100 hover:border-[#c5a059]/50'
                           }`}
                         >
                           <div>
-                            <span className="block truncate">{srv.name}</span>
+                            <span className="block truncate font-semibold">{srv.name}</span>
                             <span className="text-[11px] text-[#c5a059] font-bold">
                               ${srv.price.toLocaleString('es-CO')}
                             </span>
                           </div>
                           <div className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-[#c5a059] border-[#c5a059] text-black' : 'border-slate-400 dark:border-slate-600'
+                            isSelected ? 'bg-[#c5a059] border-[#c5a059] text-black' : 'border-slate-400 dark:border-slate-500'
                           }`}>
                             {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                           </div>
@@ -492,7 +492,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {/* Premium */}
                 <div className="space-y-2 pt-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
+                  <span className="text-[11px] font-bold text-[#c5a059] uppercase tracking-widest block">
                     Premium
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -504,18 +504,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           onClick={() => handleToggleService(srv)}
                           className={`p-3 rounded-2xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-[#c5a059]/15 border-[#c5a059] text-slate-900 dark:text-white font-bold shadow-sm'
-                              : 'bg-slate-100/70 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-[#c5a059]/40'
+                              ? 'bg-[#c5a059]/20 border-[#c5a059] text-slate-900 dark:text-white font-bold shadow-sm'
+                              : 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/15 text-slate-800 dark:text-slate-100 hover:border-[#c5a059]/50'
                           }`}
                         >
                           <div>
-                            <span className="block truncate">{srv.name}</span>
+                            <span className="block truncate font-semibold">{srv.name}</span>
                             <span className="text-[11px] text-[#c5a059] font-bold">
                               ${srv.price.toLocaleString('es-CO')}
                             </span>
                           </div>
                           <div className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-[#c5a059] border-[#c5a059] text-black' : 'border-slate-400 dark:border-slate-600'
+                            isSelected ? 'bg-[#c5a059] border-[#c5a059] text-black' : 'border-slate-400 dark:border-slate-500'
                           }`}>
                             {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                           </div>
@@ -527,7 +527,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {/* Colorimetría */}
                 <div className="space-y-2 pt-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block">
+                  <span className="text-[11px] font-bold text-[#c5a059] uppercase tracking-widest block">
                     Colorimetría
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
@@ -539,18 +539,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           onClick={() => handleToggleService(srv)}
                           className={`p-3 rounded-2xl border text-xs transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-[#c5a059]/15 border-[#c5a059] text-slate-900 dark:text-white font-bold shadow-sm'
-                              : 'bg-slate-100/70 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-[#c5a059]/40'
+                              ? 'bg-[#c5a059]/20 border-[#c5a059] text-slate-900 dark:text-white font-bold shadow-sm'
+                              : 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/15 text-slate-800 dark:text-slate-100 hover:border-[#c5a059]/50'
                           }`}
                         >
                           <div>
-                            <span className="block truncate">{srv.name}</span>
+                            <span className="block truncate font-semibold">{srv.name}</span>
                             <span className="text-[11px] text-[#c5a059] font-bold">
                               ${srv.price.toLocaleString('es-CO')}
                             </span>
                           </div>
                           <div className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-[#c5a059] border-[#c5a059] text-black' : 'border-slate-400 dark:border-slate-600'
+                            isSelected ? 'bg-[#c5a059] border-[#c5a059] text-black' : 'border-slate-400 dark:border-slate-500'
                           }`}>
                             {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                           </div>
@@ -691,7 +691,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className={`py-2.5 px-3 rounded-2xl border text-center text-xs font-bold transition-all cursor-pointer ${
                         posDiscountPercent === dVal
                           ? 'bg-[#c5a059] text-black border-[#c5a059] shadow-md'
-                          : 'bg-slate-100/70 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                          : 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/20 text-slate-700 dark:text-slate-200 font-semibold'
                       }`}
                     >
                       {dVal === 0 ? 'Sin Descuento (0%)' : `${dVal}% Cortesía`}
@@ -701,36 +701,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               {/* Breakdown Card (50/50 Split Calculation) */}
-              <div className="p-5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-3 text-xs">
-                <div className="flex justify-between text-slate-500">
+              <div className="p-5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 space-y-3 text-xs">
+                <div className="flex justify-between text-slate-600 dark:text-slate-300 font-medium">
                   <span>Subtotal Servicios:</span>
                   <span className="font-semibold text-slate-900 dark:text-white">${servicesSubtotal.toLocaleString('es-CO')}</span>
                 </div>
                 {posDiscountPercent > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-semibold">
+                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
                     <span>Descuento aplicado ({posDiscountPercent}%):</span>
                     <span>-${(servicesSubtotal - discountedServicesTotal).toLocaleString('es-CO')}</span>
                   </div>
                 )}
                 {extrasSubtotal > 0 && (
-                  <div className="flex justify-between text-slate-500">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-300 font-medium">
                     <span>Productos Extras:</span>
                     <span className="font-semibold text-slate-900 dark:text-white">${extrasSubtotal.toLocaleString('es-CO')}</span>
                   </div>
                 )}
                 
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-2 flex justify-between font-bold text-sm">
+                <div className="border-t border-slate-300 dark:border-white/15 pt-2 flex justify-between font-bold text-sm">
                   <span className="text-slate-900 dark:text-white">Total a Cobrar:</span>
                   <span className="font-display text-lg text-[#c5a059]">${finalTotal.toLocaleString('es-CO')}</span>
                 </div>
 
                 {/* 50/50 Split Showcase */}
-                <div className="pt-2 border-t border-dashed border-slate-300 dark:border-slate-700 grid grid-cols-2 gap-2 text-center">
-                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <div className="pt-2 border-t border-dashed border-slate-300 dark:border-white/15 grid grid-cols-2 gap-2 text-center">
+                  <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30">
                     <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase block">Comisión Barbero (50%)</span>
                     <span className="font-bold text-amber-500 text-sm">${barberCommission.toLocaleString('es-CO')}</span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                  <div className="p-2.5 rounded-xl bg-blue-500/15 border border-blue-500/30">
                     <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase block">Ganancia Barbería</span>
                     <span className="font-bold text-blue-500 text-sm">${shopGain.toLocaleString('es-CO')}</span>
                   </div>
@@ -823,13 +823,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {/* Expenses List */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl overflow-hidden">
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl overflow-hidden">
             <h4 className="font-display font-bold text-base text-slate-900 dark:text-white mb-4">
               Historial de Egresos Registrados
             </h4>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
+                <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                   <tr>
                     <th className="py-2.5 px-3">Fecha</th>
                     <th className="py-2.5 px-3">Categoría</th>
@@ -837,16 +837,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <th className="py-2.5 px-3 text-right">Monto</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                   {expenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50">
-                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-500">{exp.date}</td>
+                    <tr key={exp.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-medium">{exp.date}</td>
                       <td className="py-2.5 px-3 whitespace-nowrap">
-                        <span className="capitalize px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                        <span className="capitalize px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-200 font-semibold">
                           {exp.category}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-white">{exp.description}</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">{exp.description}</td>
                       <td className="py-2.5 px-3 text-right font-bold text-rose-500 whitespace-nowrap">
                         -${exp.amount.toLocaleString('es-CO')}
                       </td>
@@ -866,36 +866,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         <div className="space-y-8">
           {/* Global Metrics Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="liquid-glass-card rounded-3xl p-5 border border-white/20 dark:border-white/10 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Caja Neta Local</span>
+            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Caja Neta Local</span>
               <div className="font-display font-black text-2xl text-emerald-500">
                 ${netCashFlow.toLocaleString('es-CO')}
               </div>
-              <p className="text-[10px] text-slate-400">Ventas totales - Egresos</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-300">Ventas totales - Egresos</p>
             </div>
 
-            <div className="liquid-glass-card rounded-3xl p-5 border border-white/20 dark:border-white/10 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Ganancia Barbería</span>
+            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ganancia Barbería</span>
               <div className="font-display font-black text-2xl text-blue-500">
                 ${totalShopGains.toLocaleString('es-CO')}
               </div>
-              <p className="text-[10px] text-slate-400">50% de servicios + productos</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-300">50% de servicios + productos</p>
             </div>
 
-            <div className="liquid-glass-card rounded-3xl p-5 border border-white/20 dark:border-white/10 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pagos a Barberos</span>
+            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Pagos a Barberos</span>
               <div className="font-display font-black text-2xl text-[#c5a059]">
                 ${totalBarberPaidCommissions.toLocaleString('es-CO')}
               </div>
-              <p className="text-[10px] text-slate-400">Total liquidado y pagado</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-300">Total liquidado y pagado</p>
             </div>
 
-            <div className="liquid-glass-card rounded-3xl p-5 border border-white/20 dark:border-white/10 space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Egresos Totales</span>
+            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Egresos Totales</span>
               <div className="font-display font-black text-2xl text-rose-500">
                 ${totalExpensesAmount.toLocaleString('es-CO')}
               </div>
-              <p className="text-[10px] text-slate-400">Gastos operativos acumulados</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-300">Gastos operativos acumulados</p>
             </div>
           </div>
 
@@ -915,25 +915,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 return (
                   <div
                     key={barber.id}
-                    className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl space-y-4 flex flex-col justify-between"
+                    className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4 flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <h5 className="font-display font-bold text-lg text-slate-900 dark:text-white">
                           {barber.name}
                         </h5>
-                        <span className="text-xs bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-full font-bold">
+                        <span className="text-xs bg-slate-200/80 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-200 px-2.5 py-0.5 rounded-full font-bold">
                           {count} ventas
                         </span>
                       </div>
 
                       <div className="space-y-2 text-xs pt-2">
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Comisión Ya Pagada:</span>
+                          <span className="text-slate-600 dark:text-slate-300 font-medium">Comisión Ya Pagada:</span>
                           <span className="font-bold text-emerald-500">${paid.toLocaleString('es-CO')}</span>
                         </div>
-                        <div className="flex justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
-                          <span className="text-slate-700 dark:text-slate-300 font-bold">Comisión Pendiente:</span>
+                        <div className="flex justify-between border-t border-slate-200 dark:border-white/10 pt-2">
+                          <span className="text-slate-800 dark:text-slate-200 font-bold">Comisión Pendiente:</span>
                           <span className="font-display font-extrabold text-base text-amber-500">${pending.toLocaleString('es-CO')}</span>
                         </div>
                       </div>
@@ -946,7 +946,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                         pending > 0
                           ? 'bg-[#c5a059] hover:bg-[#d8b56d] text-black shadow-md cursor-pointer'
-                          : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-200/80 dark:bg-[#02253f] border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'
                       }`}
                     >
                       <CheckCircle2 className="w-4 h-4" />
@@ -964,24 +964,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 4. BASE DE DATOS DE CLIENTES & QR */}
       {/* ============================================================== */}
       {activeTab === 'clientes' && (
-        <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl space-y-4">
+        <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
                 Base de Datos de Clientes & Validación QR
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 Historial de visitas, calificaciones de 10 estrellas y recompensas de fidelización
               </p>
             </div>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#c5a059]/15 text-[#c5a059]">
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#c5a059]/15 border border-[#c5a059]/30 text-[#c5a059]">
               {clients.length} clientes registrados
             </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
+              <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                 <tr>
                   <th className="py-2.5 px-3">Cliente</th>
                   <th className="py-2.5 px-3">Teléfono / Email</th>
@@ -991,15 +991,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <th className="py-2.5 px-3">Recompensas IA</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                 {clients.map((cli) => (
-                  <tr key={cli.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50">
+                  <tr key={cli.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
                     <td className="py-3 px-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {cli.clientName}
                     </td>
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <div>{cli.clientPhone}</div>
-                      <div className="text-[11px] text-slate-400">{cli.clientEmail}</div>
+                      <div className="text-slate-800 dark:text-slate-200 font-semibold">{cli.clientPhone}</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-300">{cli.clientEmail}</div>
                     </td>
                     <td className="py-3 px-3 text-center font-bold text-slate-900 dark:text-white">
                       {cli.totalVisits}
@@ -1007,23 +1007,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <td className="py-3 px-3 text-center whitespace-nowrap font-bold text-[#c5a059]">
                       ★ {cli.rating} / 10
                     </td>
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                    <td className="py-3 px-3 text-slate-700 dark:text-slate-200 max-w-xs truncate font-medium">
                       {cli.comments || '—'}
                     </td>
                     <td className="py-3 px-3">
                       <div className="flex flex-wrap gap-1">
                         {cli.rewards.freeFacialCleaning && (
-                          <span className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
                             Limpieza Facial
                           </span>
                         )}
                         {cli.rewards.freeHaircut && (
-                          <span className="text-[10px] bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
+                          <span className="text-[10px] bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
                             Corte Gratis
                           </span>
                         )}
                         {!cli.rewards.freeFacialCleaning && !cli.rewards.freeHaircut && (
-                          <span className="text-[11px] text-slate-400">En progreso ({cli.totalVisits}/5)</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">En progreso ({cli.totalVisits}/5)</span>
                         )}
                       </div>
                     </td>
@@ -1040,12 +1040,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* ============================================================== */}
       {activeTab === 'broadcast' && (
         <div className="space-y-6">
-          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-white/20 dark:border-white/10 shadow-xl space-y-4">
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
             <div>
               <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
                 Envío de Promociones Masivas (Broadcast)
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 Redacta un mensaje especial para enviarlo a los {clients.length} clientes registrados en tu base de datos.
               </p>
             </div>
@@ -1059,7 +1059,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             <form onSubmit={handleSendBroadcast} className="space-y-3.5 text-xs">
               <div>
-                <label className="text-slate-700 dark:text-slate-300 font-bold block mb-1">
+                <label className="text-slate-700 dark:text-slate-200 font-bold block mb-1">
                   Título de la Promoción *
                 </label>
                 <input
@@ -1068,12 +1068,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   placeholder="Ej. ¡Jueves de 2x1 en Rituales de Barba en Legado Barber Club!"
                   value={broadcastTitle}
                   onChange={(e) => setBroadcastTitle(e.target.value)}
-                  className="w-full rounded-xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
                 />
               </div>
 
               <div>
-                <label className="text-slate-700 dark:text-slate-300 font-bold block mb-1">
+                <label className="text-slate-700 dark:text-slate-200 font-bold block mb-1">
                   Cuerpo del Mensaje *
                 </label>
                 <textarea
@@ -1082,7 +1082,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   placeholder="Estimado cliente, este fin de semana disfruta de una bebida premium gratis con cualquiera de nuestras Experiencias..."
                   value={broadcastMessage}
                   onChange={(e) => setBroadcastMessage(e.target.value)}
-                  className="w-full rounded-xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
                 />
               </div>
 
@@ -1100,18 +1100,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {/* Past Broadcasts List */}
           {promotions.length > 0 && (
-            <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 space-y-3">
+            <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-3">
               <h4 className="font-display font-bold text-base text-slate-900 dark:text-white">
                 Historial de Promociones Enviadas
               </h4>
               <div className="space-y-3">
                 {promotions.map((p) => (
-                  <div key={p.id} className="p-4 rounded-2xl bg-slate-100/60 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs space-y-1">
+                  <div key={p.id} className="p-4 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-xs space-y-1.5 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 dark:text-white">{p.title}</span>
-                      <span className="text-[11px] text-slate-500">{p.date} · {p.recipientsCount} destinatarios</span>
+                      <span className="font-bold text-slate-900 dark:text-white text-sm">{p.title}</span>
+                      <span className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">{p.date} · {p.recipientsCount} destinatarios</span>
                     </div>
-                    <p className="text-slate-600 dark:text-slate-400">{p.message}</p>
+                    <p className="text-slate-700 dark:text-slate-200">{p.message}</p>
                   </div>
                 ))}
               </div>
@@ -1124,13 +1124,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 6. HISTORIAL Y EXCEL */}
       {/* ============================================================== */}
       {activeTab === 'historial' && (
-        <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl space-y-4">
+        <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
                 Historial de Transacciones
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 Registro completo de facturación con desglose de comisiones 50/50
               </p>
             </div>
@@ -1146,7 +1146,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
+              <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                 <tr>
                   <th className="py-2.5 px-3">Factura</th>
                   <th className="py-2.5 px-3">Fecha</th>
@@ -1158,27 +1158,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <th className="py-2.5 px-3 text-center">Liquidación</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                 {sales.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50">
+                  <tr key={s.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
                     <td className="py-3 px-3 font-mono font-bold text-[#c5a059] whitespace-nowrap">
                       {s.invoiceNumber}
                     </td>
-                    <td className="py-3 px-3 text-slate-500 whitespace-nowrap">{s.date}</td>
+                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">{s.date}</td>
                     <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                       {s.barberName}
                     </td>
                     <td className="py-3 px-3">
-                      <div className="font-medium text-slate-800 dark:text-slate-200">
+                      <div className="font-semibold text-slate-900 dark:text-slate-100">
                         {s.selectedServices.map(srv => srv.name).join(', ') || 'Productos'}
                       </div>
                       {s.extraProducts.length > 0 && (
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
                           + {s.extraProducts.map(e => e.name).join(', ')}
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-3 capitalize text-slate-500 whitespace-nowrap">{s.paymentMethod}</td>
+                    <td className="py-3 px-3 capitalize text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">{s.paymentMethod}</td>
                     <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       ${s.total.toLocaleString('es-CO')}
                     </td>
@@ -1188,8 +1188,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <td className="py-3 px-3 text-center whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                         s.isCommissionPaid 
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
-                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                       }`}>
                         {s.isCommissionPaid ? 'Pagada' : 'Pendiente'}
                       </span>
@@ -1259,13 +1259,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {/* Inventory Table with Low Stock Alerts and Quick +/- */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl overflow-hidden">
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl overflow-hidden">
             <h4 className="font-display font-bold text-base text-slate-900 dark:text-white mb-4">
               Control de Stock & Alertas de Reabastecimiento
             </h4>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
+                <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                   <tr>
                     <th className="py-2.5 px-3">Producto</th>
                     <th className="py-2.5 px-3">Categoría</th>
@@ -1275,15 +1275,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <th className="py-2.5 px-3 text-right">Ajuste Rápido</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                   {inventory.map((item) => {
                     const isLowStock = item.stock < item.minStockAlert;
                     return (
-                      <tr key={item.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/50">
+                      <tr key={item.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
                         <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">
                           {item.name}
                         </td>
-                        <td className="py-3 px-3 text-slate-500">{item.category}</td>
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-300 font-medium">{item.category}</td>
                         <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">
                           ${item.price.toLocaleString('es-CO')}
                         </td>
@@ -1297,7 +1297,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               <span>Stock Bajo (&lt; {item.minStockAlert})</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
                               <Check className="w-3 h-3" />
                               <span>Óptimo</span>
                             </span>
@@ -1308,7 +1308,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <button
                               type="button"
                               onClick={() => onUpdateInventoryStock(item.id, Math.max(0, item.stock - 1))}
-                              className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold flex items-center justify-center cursor-pointer"
+                              className="w-7 h-7 rounded-lg bg-slate-200/80 dark:bg-[#02253f] hover:bg-slate-300 dark:hover:bg-[#033457] border border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-100 font-bold flex items-center justify-center cursor-pointer shadow-sm"
                               title="Restar 1 unidad"
                             >
                               -
@@ -1316,7 +1316,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <button
                               type="button"
                               onClick={() => onUpdateInventoryStock(item.id, item.stock + 1)}
-                              className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-[#c5a059] hover:text-black text-slate-700 dark:text-slate-200 font-bold flex items-center justify-center cursor-pointer"
+                              className="w-7 h-7 rounded-lg bg-slate-200/80 dark:bg-[#02253f] hover:bg-[#c5a059] hover:text-black border border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-100 font-bold flex items-center justify-center cursor-pointer shadow-sm"
                               title="Sumar 1 unidad"
                             >
                               +
@@ -1339,7 +1339,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {activeTab === 'personal' && (
         <div className="space-y-6">
           {/* New Barber Form */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl space-y-4">
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
             <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
               Dar de Alta Nuevo Barbero en el Equipo
             </h3>
@@ -1350,14 +1350,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 placeholder="Nombre del barbero"
                 value={newBarberName}
                 onChange={(e) => setNewBarberName(e.target.value)}
-                className="rounded-xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                className="rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
               />
               <input
                 type="text"
                 placeholder="Especialidades (separadas por comas)"
                 value={newBarberSpecialties}
                 onChange={(e) => setNewBarberSpecialties(e.target.value)}
-                className="rounded-xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                className="rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
               />
               <div className="flex justify-end">
                 <button
@@ -1372,7 +1372,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
 
           {/* Barbers Roster List */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-white/20 dark:border-white/10 shadow-xl space-y-4">
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
             <h4 className="font-display font-bold text-base text-slate-900 dark:text-white">
               Equipo de Barberos Activos
             </h4>
@@ -1380,19 +1380,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               {barbers.map((barber) => (
                 <div
                   key={barber.id}
-                  className="p-5 rounded-2xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-3"
+                  className="p-5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 flex flex-col justify-between space-y-3 shadow-sm"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <h5 className="font-bold text-base text-slate-900 dark:text-white">{barber.name}</h5>
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
                         Activo
                       </span>
                     </div>
 
                     <div className="flex flex-wrap gap-1 mt-2">
                       {barber.specialties.map((spec, i) => (
-                        <span key={i} className="text-[10px] bg-white dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        <span key={i} className="text-[10px] bg-white dark:bg-[#031d33] px-2 py-0.5 rounded-md text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/15 font-medium">
                           {spec}
                         </span>
                       ))}
@@ -1400,7 +1400,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
 
                   {barbers.length > 1 && (
-                    <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                    <div className="pt-2 border-t border-slate-200 dark:border-white/10 flex justify-end">
                       <button
                         type="button"
                         onClick={() => {

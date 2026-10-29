@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "Barber": {
+      "title": "Barber",
+      "description": "Team barber profile for Legado Barber Club.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "active": { "type": "boolean" },
+        "specialties": { "type": "array" }
+      },
+      "required": ["id", "name", "active"]
+    },
+    "ClientRecord": {
+      "title": "ClientRecord",
+      "description": "Client profile registered via QR code attendance or online booking with visit history and rewards.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 100 },
+        "clientEmail": { "type": "string", "maxLength": 150 },
+        "clientPhone": { "type": "string", "maxLength": 30 },
+        "rating": { "type": "number" },
+        "comments": { "type": "string", "maxLength": 1000 },
+        "lastVisit": { "type": "string", "maxLength": 50 },
+        "totalVisits": { "type": "number" },
+        "rewards": { "type": "object" }
+      },
+      "required": ["id", "clientName", "clientPhone", "totalVisits"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Online booking reservation for a client with a barber.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "bookingCode": { "type": "string", "maxLength": 20 },
+        "clientName": { "type": "string", "maxLength": 100 },
+        "clientPhone": { "type": "string", "maxLength": 30 },
+        "serviceId": { "type": "string", "maxLength": 128 },
+        "serviceName": { "type": "string", "maxLength": 100 },
+        "barberId": { "type": "string", "maxLength": 128 },
+        "barberName": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 20 },
+        "timeSlot": { "type": "string", "maxLength": 20 },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["pendiente", "confirmada", "completada", "cancelada"] },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "bookingCode", "clientName", "clientPhone", "serviceName", "barberName", "date", "timeSlot", "status"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Point of Sale (POS) transaction record dividing commission 50/50.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "invoiceNumber": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 50 },
+        "barberId": { "type": "string", "maxLength": 128 },
+        "barberName": { "type": "string", "maxLength": 100 },
+        "selectedServices": { "type": "array" },
+        "extraProducts": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discountPercent": { "type": "number" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["efectivo", "transferencia"] },
+        "barberCommission": { "type": "number" },
+        "shopGain": { "type": "number" },
+        "isCommissionPaid": { "type": "boolean" },
+        "clientName": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "invoiceNumber", "barberId", "barberName", "total", "paymentMethod", "isCommissionPaid"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Business expense registered in administration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 255 },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "description", "amount", "category"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Barbershop product inventory item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 50 },
+        "price": { "type": "number" },
+        "stock": { "type": "number" },
+        "minStockAlert": { "type": "number" }
+      },
+      "required": ["id", "name", "price", "stock", "minStockAlert"]
+    },
+    "PromotionBroadcast": {
+      "title": "PromotionBroadcast",
+      "description": "Marketing broadcast notification sent to registered clients.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 150 },
+        "message": { "type": "string", "maxLength": 1500 },
+        "recipientsCount": { "type": "number" }
+      },
+      "required": ["id", "title", "message", "recipientsCount"]
+    }
+  },
+  "firestore": {
+    "/barbers/{barberId}": {
+      "schema": "Barber",
+      "description": "Collection of barber profiles available for bookings and POS."
+    },
+    "/clients/{clientId}": {
+      "schema": "ClientRecord",
+      "description": "Collection of clients and their loyalty visits/rewards."
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Collection of client appointment bookings."
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Collection of sales and commission accounting records."
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Collection of operational shop expenses."
+    },
+    "/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Collection of stock inventory items."
+    },
+    "/promotions/{promoId}": {
+      "schema": "PromotionBroadcast",
+      "description": "Collection of sent promotional marketing campaigns."
+    }
+  }
+}
