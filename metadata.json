@@ -1,0 +1,6 @@
+{
+  "name": "Legado Barber Club",
+  "description": "Aplicación de gestión integral para Legado Barber Club: portal de clientes con QR y fidelización IA, panel de barberos y panel administrativo POS con liquidación de comisiones.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

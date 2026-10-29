@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-page: #f8fafc;
+    --text-primary: #0f172a;
+    --glass-bg: rgba(255, 255, 255, 0.72);
+    --glass-border: rgba(226, 232, 240, 0.85);
+    --glass-card: rgba(255, 255, 255, 0.85);
+  }
+
+  .dark {
+    --bg-page: #011d32;
+    --text-primary: #f8fafc;
+    --glass-bg: rgba(1, 29, 50, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-card: rgba(2, 38, 64, 0.78);
+  }
+
+  body {
+    background-color: var(--bg-page);
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  .font-display {
+    font-family: 'Cinzel', Georgia, serif;
+    letter-spacing: 0.04em;
+  }
+}
+
+/* Apple Liquid Glass Utilities */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
+
+.liquid-glass-card {
+  background: var(--glass-card);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+}
+
+.liquid-glass-glow {
+  box-shadow: 0 10px 40px -10px rgba(197, 160, 89, 0.25);
+}
+
+/* Custom smooth scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c5a059;
+}
