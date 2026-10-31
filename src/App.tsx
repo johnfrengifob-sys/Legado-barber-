@@ -11,7 +11,8 @@ import {
 } from './data/mockData';
 import { 
   Service, Barber, ClientRecord, Sale, Expense, InventoryItem, 
-  PromotionBroadcast, Appointment, ActiveTheme, ActivePanel 
+  PromotionBroadcast, Appointment, ActiveTheme, ActivePanel,
+  BarberLiquidation, BarberContract 
 } from './types';
 import { TopNav } from './components/TopNav';
 import { HomePortal } from './components/HomePortal';
@@ -36,6 +37,11 @@ import {
   saveInventoryItemToFirestore,
   subscribeToPromotions,
   savePromotionToFirestore,
+  subscribeToLiquidations,
+  saveLiquidationToFirestore,
+  subscribeToContracts,
+  saveContractToFirestore,
+  deleteContractFromFirestore,
   subscribeToAuth,
   logoutUser
 } from './services/firebaseService';
@@ -96,6 +102,16 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [liquidations, setLiquidations] = useState<BarberLiquidation[]>(() => {
+    const saved = localStorage.getItem('legado_liquidations_v1');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [contracts, setContracts] = useState<BarberContract[]>(() => {
+    const saved = localStorage.getItem('legado_contracts_v1');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Initialize and Seed Firestore if first startup
   useEffect(() => {
     seedFirestoreIfEmpty();
@@ -140,6 +156,14 @@ export default function App() {
         setPromotions(data);
         setIsCloudSynced(true);
       });
+      const unsubLiquidations = subscribeToLiquidations((data) => {
+        setLiquidations(data);
+        setIsCloudSynced(true);
+      });
+      const unsubContracts = subscribeToContracts((data) => {
+        setContracts(data);
+        setIsCloudSynced(true);
+      });
 
       return () => {
         unsubBarbers();
@@ -149,6 +173,8 @@ export default function App() {
         unsubExpenses();
         unsubInventory();
         unsubPromotions();
+        unsubLiquidations();
+        unsubContracts();
       };
     } catch (e) {
       console.warn('Real-time Firestore listeners running in local mode:', e);
@@ -429,6 +455,43 @@ export default function App() {
     });
   };
 
+  // Liquidation Handlers
+  const handleSaveLiquidation = (liq: BarberLiquidation) => {
+    setLiquidations(prev => [liq, ...prev.filter(l => l.id !== liq.id)]);
+    saveLiquidationToFirestore(liq).catch((err) => {
+      console.warn('Could not sync liquidation to Firestore:', err);
+    });
+
+    // Mark corresponding sales as commission paid
+    if (liq.saleIds && liq.saleIds.length > 0) {
+      setSales(prev =>
+        prev.map(s => {
+          if (liq.saleIds.includes(s.id)) {
+            const updated = { ...s, isCommissionPaid: true };
+            saveSaleToFirestore(updated).catch(console.warn);
+            return updated;
+          }
+          return s;
+        })
+      );
+    }
+  };
+
+  // Contract Handlers
+  const handleSaveContract = (contract: BarberContract) => {
+    setContracts(prev => [contract, ...prev.filter(c => c.id !== contract.id)]);
+    saveContractToFirestore(contract).catch((err) => {
+      console.warn('Could not sync contract to Firestore:', err);
+    });
+  };
+
+  const handleDeleteContract = (contractId: string) => {
+    setContracts(prev => prev.filter(c => c.id !== contractId));
+    deleteContractFromFirestore(contractId).catch((err) => {
+      console.warn('Could not delete contract from Firestore:', err);
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
       {/* Top Navbar with Logo, Breadcrumbs, Theme Switcher and Firebase status */}
@@ -480,9 +543,14 @@ export default function App() {
             expenses={expenses}
             inventory={inventory}
             promotions={promotions}
+            liquidations={liquidations}
+            contracts={contracts}
             onAddSale={handleAddSale}
             onAddExpense={handleAddExpense}
             onSettleBarberCommissions={handleSettleBarberCommissions}
+            onSaveLiquidation={handleSaveLiquidation}
+            onSaveContract={handleSaveContract}
+            onDeleteContract={handleDeleteContract}
             onSendBroadcast={handleSendBroadcast}
             onUpdateInventoryStock={handleUpdateInventoryStock}
             onAddInventoryItem={handleAddInventoryItem}

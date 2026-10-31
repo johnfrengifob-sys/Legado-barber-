@@ -22,7 +22,9 @@ import {
   Sale, 
   Expense, 
   InventoryItem, 
-  PromotionBroadcast 
+  PromotionBroadcast,
+  BarberLiquidation,
+  BarberContract 
 } from '../types';
 import { 
   INITIAL_BARBERS, 
@@ -289,6 +291,78 @@ export const savePromotionToFirestore = async (promo: PromotionBroadcast) => {
     await setDoc(doc(db, 'promotions', promo.id), promo);
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+// --- LIQUIDATIONS ---
+export const subscribeToLiquidations = (onData: (data: BarberLiquidation[]) => void) => {
+  const path = 'liquidations';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const list: BarberLiquidation[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ ...docSnap.data(), id: docSnap.id } as BarberLiquidation);
+      });
+      onData(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+};
+
+export const saveLiquidationToFirestore = async (liq: BarberLiquidation) => {
+  const path = `liquidations/${liq.id}`;
+  try {
+    await setDoc(doc(db, 'liquidations', liq.id), liq);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+export const deleteLiquidationFromFirestore = async (liqId: string) => {
+  const path = `liquidations/${liqId}`;
+  try {
+    await deleteDoc(doc(db, 'liquidations', liqId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+};
+
+// --- CONTRACTS ---
+export const subscribeToContracts = (onData: (data: BarberContract[]) => void) => {
+  const path = 'contracts';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const list: BarberContract[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ ...docSnap.data(), id: docSnap.id } as BarberContract);
+      });
+      onData(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+};
+
+export const saveContractToFirestore = async (contract: BarberContract) => {
+  const path = `contracts/${contract.id}`;
+  try {
+    await setDoc(doc(db, 'contracts', contract.id), contract);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+export const deleteContractFromFirestore = async (contractId: string) => {
+  const path = `contracts/${contractId}`;
+  try {
+    await deleteDoc(doc(db, 'contracts', contractId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 };
 

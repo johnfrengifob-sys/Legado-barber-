@@ -3,12 +3,15 @@ import {
   ShoppingCart, DollarSign, TrendingUp, Users, Send, FileSpreadsheet, 
   Package, UserCheck, Plus, Trash2, CheckCircle2, AlertTriangle, 
   Percent, ArrowRight, Download, CreditCard, Banknote, Scissors, 
-  RefreshCw, Check, Sparkles, AlertCircle
+  RefreshCw, Check, Sparkles, AlertCircle, FileText
 } from 'lucide-react';
 import { 
   Service, Barber, ClientRecord, Sale, Expense, InventoryItem, 
-  PromotionBroadcast, ExpenseCategory, SaleItemExtra 
+  PromotionBroadcast, ExpenseCategory, SaleItemExtra,
+  BarberLiquidation, BarberContract
 } from '../types';
+import { BarberLiquidationManager } from './BarberLiquidationManager';
+import { BarberContractManager } from './BarberContractManager';
 
 interface AdminPanelProps {
   services: Service[];
@@ -18,9 +21,14 @@ interface AdminPanelProps {
   expenses: Expense[];
   inventory: InventoryItem[];
   promotions: PromotionBroadcast[];
+  liquidations?: BarberLiquidation[];
+  contracts?: BarberContract[];
   onAddSale: (sale: Sale) => void;
   onAddExpense: (expense: Expense) => void;
   onSettleBarberCommissions: (barberId: string) => void;
+  onSaveLiquidation?: (liq: BarberLiquidation) => void;
+  onSaveContract?: (contract: BarberContract) => void;
+  onDeleteContract?: (contractId: string) => void;
   onSendBroadcast: (broadcast: PromotionBroadcast) => void;
   onUpdateInventoryStock: (itemId: string, newStock: number) => void;
   onAddInventoryItem: (item: InventoryItem) => void;
@@ -32,6 +40,7 @@ type AdminTab =
   | 'pos' 
   | 'gastos' 
   | 'liquidacion' 
+  | 'contratos'
   | 'clientes' 
   | 'broadcast' 
   | 'historial' 
@@ -46,9 +55,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   expenses,
   inventory,
   promotions,
+  liquidations = [],
+  contracts = [],
   onAddSale,
   onAddExpense,
   onSettleBarberCommissions,
+  onSaveLiquidation = () => {},
+  onSaveContract = () => {},
+  onDeleteContract = () => {},
   onSendBroadcast,
   onUpdateInventoryStock,
   onAddInventoryItem,
@@ -311,7 +325,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const tabs: { id: AdminTab; label: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'pos', label: 'Nueva Venta (POS)', icon: ShoppingCart },
     { id: 'gastos', label: 'Gastos y Egresos', icon: DollarSign },
-    { id: 'liquidacion', label: 'Resumen y Liquidación', icon: TrendingUp },
+    { id: 'liquidacion', label: 'Liquidar Barbero (Firmas & PDF)', icon: TrendingUp },
+    { id: 'contratos', label: 'Contratos & Normativa (20 Días)', icon: FileText },
     { id: 'clientes', label: 'Clientes & QR', icon: Users },
     { id: 'broadcast', label: 'Promociones Masivas', icon: Send },
     { id: 'historial', label: 'Historial & Excel', icon: FileSpreadsheet },
@@ -860,104 +875,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 3. RESUMEN Y LIQUIDACIÓN DE PAGOS */}
+      {/* 3. RESUMEN Y LIQUIDACIÓN DE PAGOS (CON FIRMAS Y PDF) */}
       {/* ============================================================== */}
       {activeTab === 'liquidacion' && (
-        <div className="space-y-8">
-          {/* Global Metrics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Caja Neta Local</span>
-              <div className="font-display font-black text-2xl text-emerald-500">
-                ${netCashFlow.toLocaleString('es-CO')}
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-300">Ventas totales - Egresos</p>
-            </div>
+        <BarberLiquidationManager
+          barbers={barbers}
+          sales={sales}
+          liquidations={liquidations}
+          totalSalesRevenue={totalSalesRevenue}
+          totalExpensesAmount={totalExpensesAmount}
+          netCashFlow={netCashFlow}
+          totalShopGains={totalShopGains}
+          totalBarberPaidCommissions={totalBarberPaidCommissions}
+          onSaveLiquidation={onSaveLiquidation}
+          onSettleBarberCommissions={onSettleBarberCommissions}
+        />
+      )}
 
-            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ganancia Barbería</span>
-              <div className="font-display font-black text-2xl text-blue-500">
-                ${totalShopGains.toLocaleString('es-CO')}
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-300">50% de servicios + productos</p>
-            </div>
-
-            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Pagos a Barberos</span>
-              <div className="font-display font-black text-2xl text-[#c5a059]">
-                ${totalBarberPaidCommissions.toLocaleString('es-CO')}
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-300">Total liquidado y pagado</p>
-            </div>
-
-            <div className="liquid-glass-card rounded-3xl p-5 border border-slate-200/80 dark:border-white/15 space-y-1">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Egresos Totales</span>
-              <div className="font-display font-black text-2xl text-rose-500">
-                ${totalExpensesAmount.toLocaleString('es-CO')}
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-300">Gastos operativos acumulados</p>
-            </div>
-          </div>
-
-          {/* Individual Barber Liquidation Cards */}
-          <div className="space-y-4">
-            <h4 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-              Liquidación Individual por Barbero
-            </h4>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {barbers.map((barber) => {
-                const bSales = sales.filter(s => s.barberId === barber.id);
-                const pending = bSales.filter(s => !s.isCommissionPaid).reduce((sum, s) => sum + s.barberCommission, 0);
-                const paid = bSales.filter(s => s.isCommissionPaid).reduce((sum, s) => sum + s.barberCommission, 0);
-                const count = bSales.length;
-
-                return (
-                  <div
-                    key={barber.id}
-                    className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-                          {barber.name}
-                        </h5>
-                        <span className="text-xs bg-slate-200/80 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-200 px-2.5 py-0.5 rounded-full font-bold">
-                          {count} ventas
-                        </span>
-                      </div>
-
-                      <div className="space-y-2 text-xs pt-2">
-                        <div className="flex justify-between">
-                          <span className="text-slate-600 dark:text-slate-300 font-medium">Comisión Ya Pagada:</span>
-                          <span className="font-bold text-emerald-500">${paid.toLocaleString('es-CO')}</span>
-                        </div>
-                        <div className="flex justify-between border-t border-slate-200 dark:border-white/10 pt-2">
-                          <span className="text-slate-800 dark:text-slate-200 font-bold">Comisión Pendiente:</span>
-                          <span className="font-display font-extrabold text-base text-amber-500">${pending.toLocaleString('es-CO')}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={pending === 0}
-                      onClick={() => onSettleBarberCommissions(barber.id)}
-                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                        pending > 0
-                          ? 'bg-[#c5a059] hover:bg-[#d8b56d] text-black shadow-md cursor-pointer'
-                          : 'bg-slate-200/80 dark:bg-[#02253f] border border-slate-300 dark:border-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{pending > 0 ? 'Liquidar Pendientes' : 'Al Día (Sin saldo)'}</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+      {/* ============================================================== */}
+      {/* CONTRATOS DE ARRENDAMIENTO DE PUESTO (PREAVISO 20 DÍAS) */}
+      {/* ============================================================== */}
+      {activeTab === 'contratos' && (
+        <BarberContractManager
+          barbers={barbers}
+          contracts={contracts}
+          onSaveContract={onSaveContract}
+          onDeleteContract={onDeleteContract}
+        />
       )}
 
       {/* ============================================================== */}

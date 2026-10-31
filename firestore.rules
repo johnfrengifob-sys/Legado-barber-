@@ -126,5 +126,27 @@ service cloud.firestore {
         && incoming().message is string && incoming().message.size() <= 1500;
       allow update, delete: if isValidId(promoId);
     }
+
+    // Barber Liquidations collection
+    match /liquidations/{liquidationId} {
+      allow get: if isValidId(liquidationId);
+      allow list: if true;
+      allow create, update: if isValidId(liquidationId)
+        && incoming().voucherNumber is string && incoming().voucherNumber.size() <= 50
+        && incoming().barberName is string && incoming().barberName.size() <= 100
+        && incoming().netPaidAmount is number && incoming().netPaidAmount >= 0;
+      allow delete: if isValidId(liquidationId);
+    }
+
+    // Barber Space Rental Contracts collection
+    match /contracts/{contractId} {
+      allow get: if isValidId(contractId);
+      allow list: if true;
+      allow create, update: if isValidId(contractId)
+        && incoming().contractNumber is string && incoming().contractNumber.size() <= 50
+        && incoming().barberName is string && incoming().barberName.size() <= 100
+        && incoming().barberCedula is string && incoming().barberCedula.size() <= 30;
+      allow delete: if isValidId(contractId);
+    }
   }
 }

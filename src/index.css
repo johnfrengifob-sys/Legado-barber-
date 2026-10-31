@@ -3,13 +3,13 @@
 
 @layer base {
   :root {
-    --bg-page: #f8fafc;
+    --bg-page: #e0edf8; /* Refined pastel blue */
     --text-primary: #0f172a;
-    --glass-bg: rgba(255, 255, 255, 0.78);
-    --glass-border: rgba(203, 213, 225, 0.9);
-    --glass-card: rgba(255, 255, 255, 0.92);
-    /* Wavy texture: airy ocean waves in navy blue (#011d32), gentle & spaced */
-    --wavy-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cpath d='M0 65 Q 150 15, 300 65 T 600 65 M0 145 Q 150 195, 300 145 T 600 145 M0 225 Q 150 175, 300 225 T 600 225 M0 295 Q 150 340, 300 295 T 600 295' fill='none' stroke='%23011d32' stroke-width='1.25' stroke-opacity='0.08' stroke-linecap='round'/%3E%3C/svg%3E");
+    --glass-bg: rgba(255, 255, 255, 0.84);
+    --glass-border: rgba(186, 210, 232, 0.8);
+    --glass-card: rgba(255, 255, 255, 0.94);
+    /* Wavy texture: airy ocean waves in navy blue (#011d32) on pastel blue, gentle & spaced */
+    --wavy-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cpath d='M0 65 Q 150 15, 300 65 T 600 65 M0 145 Q 150 195, 300 145 T 600 145 M0 225 Q 150 175, 300 225 T 600 225 M0 295 Q 150 340, 300 295 T 600 295' fill='none' stroke='%23011d32' stroke-width='1.25' stroke-opacity='0.09' stroke-linecap='round'/%3E%3C/svg%3E");
   }
 
   .dark {

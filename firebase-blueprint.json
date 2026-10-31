@@ -112,6 +112,49 @@
         "recipientsCount": { "type": "number" }
       },
       "required": ["id", "title", "message", "recipientsCount"]
+    },
+    "BarberLiquidation": {
+      "title": "BarberLiquidation",
+      "description": "Liquidation and settlement receipt signed for a barber with payment details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "voucherNumber": { "type": "string", "maxLength": 50 },
+        "barberId": { "type": "string", "maxLength": 128 },
+        "barberName": { "type": "string", "maxLength": 100 },
+        "barberPhone": { "type": "string", "maxLength": 30 },
+        "date": { "type": "string", "maxLength": 50 },
+        "totalServicesCount": { "type": "number" },
+        "totalEarnedCommission": { "type": "number" },
+        "deductionAmount": { "type": "number" },
+        "deductionReason": { "type": "string", "maxLength": 255 },
+        "netPaidAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["efectivo", "transferencia"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["completada", "pendiente_firma"] },
+        "saleIds": { "type": "array" }
+      },
+      "required": ["id", "voucherNumber", "barberId", "barberName", "netPaidAmount", "paymentMethod", "status"]
+    },
+    "BarberContract": {
+      "title": "BarberContract",
+      "description": "Civil & commercial workspace booth rental contract for barbers with 20 days notice clause.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "contractNumber": { "type": "string", "maxLength": 50 },
+        "barberId": { "type": "string", "maxLength": 128 },
+        "barberName": { "type": "string", "maxLength": 100 },
+        "barberCedula": { "type": "string", "maxLength": 30 },
+        "barberPhone": { "type": "string", "maxLength": 30 },
+        "barberAddress": { "type": "string", "maxLength": 150 },
+        "percentageCut": { "type": "number" },
+        "startDate": { "type": "string", "maxLength": 30 },
+        "noticeDays": { "type": "number" },
+        "termsAccepted": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["activo", "finalizado"] }
+      },
+      "required": ["id", "contractNumber", "barberId", "barberName", "barberCedula", "barberPhone", "percentageCut", "noticeDays", "termsAccepted"]
     }
   },
   "firestore": {
@@ -142,6 +185,14 @@
     "/promotions/{promoId}": {
       "schema": "PromotionBroadcast",
       "description": "Collection of sent promotional marketing campaigns."
+    },
+    "/liquidations/{liquidationId}": {
+      "schema": "BarberLiquidation",
+      "description": "Collection of settlements and payment vouchers signed with barbers."
+    },
+    "/contracts/{contractId}": {
+      "schema": "BarberContract",
+      "description": "Collection of booth rental contracts and terms accepted by barbers."
     }
   }
 }

@@ -14,6 +14,8 @@ export interface Barber {
   name: string;
   active: boolean;
   specialties: string[];
+  phone?: string;
+  cedula?: string;
 }
 
 export interface ClientRecord {
@@ -104,6 +106,43 @@ export interface PromotionBroadcast {
   title: string;
   message: string;
   recipientsCount: number;
+}
+
+export interface BarberLiquidation {
+  id: string;
+  voucherNumber: string;
+  barberId: string;
+  barberName: string;
+  barberPhone?: string;
+  date: string;
+  totalServicesCount: number;
+  totalEarnedCommission: number;
+  deductionAmount: number;
+  deductionReason?: string;
+  netPaidAmount: number;
+  paymentMethod: 'efectivo' | 'transferencia';
+  notes?: string;
+  adminSignature?: string;
+  barberSignature?: string;
+  status: 'completada' | 'pendiente_firma';
+  saleIds: string[];
+}
+
+export interface BarberContract {
+  id: string;
+  contractNumber: string;
+  barberId: string;
+  barberName: string;
+  barberCedula: string;
+  barberPhone: string;
+  barberAddress: string;
+  percentageCut: number; // e.g. 50%
+  startDate: string;
+  noticeDays: number; // 20 days
+  termsAccepted: boolean;
+  barberSignature?: string;
+  adminSignature?: string;
+  status: 'activo' | 'finalizado';
 }
 
 export type ActiveTheme = 'light' | 'dark' | 'system';
