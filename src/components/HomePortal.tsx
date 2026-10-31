@@ -20,11 +20,11 @@ export const HomePortal: React.FC<HomePortalProps> = ({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-16">
       {/* Hero Welcome without boxed containers */}
       <div className="relative text-center max-w-3xl mx-auto pt-2 pb-2 space-y-6">
-        <div className="flex justify-center">
+        <div className="flex justify-center bg-transparent">
           <img
-            src="/assets/aistudio/Logo_00f5e574.jpg"
+            src="/assets/aistudio/logo_transparent.png"
             alt="Legado Barber Club"
-            className="w-52 sm:w-64 h-auto object-contain mx-auto transition-transform hover:scale-[1.02]"
+            className="w-52 sm:w-64 h-auto object-contain mx-auto transition-transform hover:scale-[1.02] bg-transparent"
           />
         </div>
 
@@ -99,7 +99,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
             </div>
           </div>
 
-          {/* 2. Panel Barberos (Protegido por PIN: 2346) */}
+          {/* 2. Panel Barberos (Acceso Protegido) */}
           <div
             onClick={onSelectBarbers}
             className="group liquid-glass-card rounded-3xl p-7 border border-slate-200/80 dark:border-white/15 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
@@ -111,7 +111,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
                 </div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full flex items-center gap-1">
                   <Lock className="w-3 h-3" />
-                  <span>PIN: 2346</span>
+                  <span>Acceso Protegido</span>
                 </span>
               </div>
 
@@ -147,7 +147,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
             </div>
           </div>
 
-          {/* 3. Panel Administrador (Protegido por PIN: 3546) */}
+          {/* 3. Panel Administrador (Acceso Restringido) */}
           <div
             onClick={onSelectAdmin}
             className="group liquid-glass-card rounded-3xl p-7 border border-slate-200/80 dark:border-white/15 hover:border-[#c5a059]/70 hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer relative overflow-hidden"
@@ -159,7 +159,7 @@ export const HomePortal: React.FC<HomePortalProps> = ({
                 </div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#c5a059] bg-[#c5a059]/15 border border-[#c5a059]/30 px-2.5 py-1 rounded-full flex items-center gap-1">
                   <Lock className="w-3 h-3" />
-                  <span>PIN: 3546</span>
+                  <span>Acceso Restringido</span>
                 </span>
               </div>
 

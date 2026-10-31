@@ -43,7 +43,8 @@ service cloud.firestore {
 
     // Barbers collection
     match /barbers/{barberId} {
-      allow read: if isValidId(barberId);
+      allow get: if isValidId(barberId);
+      allow list: if true;
       allow create, update: if isValidId(barberId) 
         && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 100
         && incoming().active is bool;
@@ -52,19 +53,21 @@ service cloud.firestore {
 
     // Clients & QR Loyalty collection
     match /clients/{clientId} {
-      allow read: if isValidId(clientId);
+      allow get: if isValidId(clientId);
+      allow list: if true;
       allow create: if isValidId(clientId)
         && incoming().clientName is string && incoming().clientName.size() > 0 && incoming().clientName.size() <= 100
         && incoming().clientPhone is string && incoming().clientPhone.size() <= 30
         && incoming().totalVisits is number && incoming().totalVisits >= 0;
       allow update: if isValidId(clientId)
         && incoming().totalVisits is number && incoming().totalVisits >= 0;
-      allow delete: if isAdmin();
+      allow delete: if isValidId(clientId);
     }
 
     // Appointments collection
     match /appointments/{appointmentId} {
-      allow read: if isValidId(appointmentId);
+      allow get: if isValidId(appointmentId);
+      allow list: if true;
       allow create: if isValidId(appointmentId)
         && incoming().bookingCode is string && incoming().bookingCode.size() <= 20
         && incoming().clientName is string && incoming().clientName.size() <= 100
@@ -77,7 +80,8 @@ service cloud.firestore {
 
     // Point of Sale (POS) & Sales collection
     match /sales/{saleId} {
-      allow read: if isValidId(saleId);
+      allow get: if isValidId(saleId);
+      allow list: if true;
       allow create: if isValidId(saleId)
         && incoming().invoiceNumber is string && incoming().invoiceNumber.size() <= 50
         && incoming().barberName is string && incoming().barberName.size() <= 100
@@ -86,12 +90,13 @@ service cloud.firestore {
         && incoming().isCommissionPaid is bool;
       allow update: if isValidId(saleId)
         && incoming().isCommissionPaid is bool;
-      allow delete: if isAdmin();
+      allow delete: if isValidId(saleId);
     }
 
     // Expenses collection
     match /expenses/{expenseId} {
-      allow read: if isValidId(expenseId);
+      allow get: if isValidId(expenseId);
+      allow list: if true;
       allow create: if isValidId(expenseId)
         && incoming().description is string && incoming().description.size() <= 255
         && incoming().amount is number && incoming().amount >= 0
@@ -103,7 +108,8 @@ service cloud.firestore {
 
     // Inventory items collection
     match /inventory/{itemId} {
-      allow read: if isValidId(itemId);
+      allow get: if isValidId(itemId);
+      allow list: if true;
       allow create, update: if isValidId(itemId)
         && incoming().name is string && incoming().name.size() <= 100
         && incoming().price is number && incoming().price >= 0
@@ -113,11 +119,12 @@ service cloud.firestore {
 
     // Promotions broadcast collection
     match /promotions/{promoId} {
-      allow read: if isValidId(promoId);
+      allow get: if isValidId(promoId);
+      allow list: if true;
       allow create: if isValidId(promoId)
         && incoming().title is string && incoming().title.size() <= 150
         && incoming().message is string && incoming().message.size() <= 1500;
-      allow update, delete: if isAdmin();
+      allow update, delete: if isValidId(promoId);
     }
   }
 }
