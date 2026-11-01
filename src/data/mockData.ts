@@ -225,21 +225,316 @@ export const INITIAL_CLIENTS: ClientRecord[] = [
 ];
 
 export const INITIAL_SALES: Sale[] = [
+  // --- HOY: 2026-11-01 (Domingo de alta afluencia con horas pico) ---
+  {
+    id: 'sale-201',
+    invoiceNumber: 'FACT-101',
+    date: '2026-11-01 09:30',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[0]], // Corte Legado $30.000
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: false,
+    clientName: 'Alejandro Morales'
+  },
+  {
+    id: 'sale-202',
+    invoiceNumber: 'FACT-102',
+    date: '2026-11-01 10:15',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[1]], // Ritual Barba $20.000
+    extraProducts: [],
+    subtotal: 20000,
+    discountPercent: 0,
+    total: 20000,
+    paymentMethod: 'transferencia',
+    barberCommission: 10000,
+    shopGain: 10000,
+    isCommissionPaid: false,
+    clientName: 'Carlos Montoya'
+  },
+  {
+    id: 'sale-203',
+    invoiceNumber: 'FACT-103',
+    date: '2026-11-01 11:30',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[3]], // Corte + Barba $45.000
+    extraProducts: [{ id: 'ext-p1', name: 'Pomada Mate', price: 35000 }],
+    subtotal: 80000,
+    discountPercent: 0,
+    total: 80000,
+    paymentMethod: 'efectivo',
+    barberCommission: 22500,
+    shopGain: 57500,
+    isCommissionPaid: false,
+    clientName: 'Santiago Vargas'
+  },
+  // HORA PICO 14:00 - 16:00
+  {
+    id: 'sale-204',
+    invoiceNumber: 'FACT-104',
+    date: '2026-11-01 14:00',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[9]], // Experiencia Legado VIP $75.000
+    extraProducts: [],
+    subtotal: 75000,
+    discountPercent: 0,
+    total: 75000,
+    paymentMethod: 'efectivo',
+    barberCommission: 37500,
+    shopGain: 37500,
+    isCommissionPaid: false,
+    clientName: 'Andrés Gil'
+  },
+  {
+    id: 'sale-205',
+    invoiceNumber: 'FACT-105',
+    date: '2026-11-01 14:45',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[0]], // Corte Legado $30.000
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: false,
+    clientName: 'Nicolás Ospina'
+  },
+  {
+    id: 'sale-206',
+    invoiceNumber: 'FACT-106',
+    date: '2026-11-01 15:15',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[4]], // Limpieza Facial $35.000
+    extraProducts: [{ id: 'ext-p2', name: 'Aceite Barba', price: 28000 }],
+    subtotal: 63000,
+    discountPercent: 0,
+    total: 63000,
+    paymentMethod: 'transferencia',
+    barberCommission: 17500,
+    shopGain: 45500,
+    isCommissionPaid: false,
+    clientName: 'Felipe Morales'
+  },
+  {
+    id: 'sale-207',
+    invoiceNumber: 'FACT-107',
+    date: '2026-11-01 16:30',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[3]], // Corte + Barba $45.000
+    extraProducts: [],
+    subtotal: 45000,
+    discountPercent: 0,
+    total: 45000,
+    paymentMethod: 'efectivo',
+    barberCommission: 22500,
+    shopGain: 22500,
+    isCommissionPaid: false,
+    clientName: 'Esteban Quintero'
+  },
+  {
+    id: 'sale-208',
+    invoiceNumber: 'FACT-108',
+    date: '2026-11-01 17:45',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[0]], // Corte Legado $30.000
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'transferencia',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: false,
+    clientName: 'Daniel Cifuentes'
+  },
+  {
+    id: 'sale-209',
+    invoiceNumber: 'FACT-109',
+    date: '2026-11-01 19:00',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[1]], // Ritual Barba $20.000
+    extraProducts: [],
+    subtotal: 20000,
+    discountPercent: 0,
+    total: 20000,
+    paymentMethod: 'efectivo',
+    barberCommission: 10000,
+    shopGain: 10000,
+    isCommissionPaid: false,
+    clientName: 'Camilo Jaramillo'
+  },
+
+  // --- AYER / SÁBADO: 2026-10-31 (Día pico de la semana) ---
+  {
+    id: 'sale-150',
+    invoiceNumber: 'FACT-090',
+    date: '2026-10-31 10:00',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[0]],
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: true,
+    clientName: 'Manuel Santos'
+  },
+  {
+    id: 'sale-151',
+    invoiceNumber: 'FACT-091',
+    date: '2026-10-31 11:30',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[9]], // VIP $75.000
+    extraProducts: [],
+    subtotal: 75000,
+    discountPercent: 0,
+    total: 75000,
+    paymentMethod: 'efectivo',
+    barberCommission: 37500,
+    shopGain: 37500,
+    isCommissionPaid: true,
+    clientName: 'Guillermo Duque'
+  },
+  {
+    id: 'sale-152',
+    invoiceNumber: 'FACT-092',
+    date: '2026-10-31 14:00',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[3]],
+    extraProducts: [{ id: 'ext-p3', name: 'Cera Fijación', price: 30000 }],
+    subtotal: 75000,
+    discountPercent: 0,
+    total: 75000,
+    paymentMethod: 'efectivo',
+    barberCommission: 22500,
+    shopGain: 52500,
+    isCommissionPaid: true,
+    clientName: 'Samuel Restrepo'
+  },
+  {
+    id: 'sale-153',
+    invoiceNumber: 'FACT-093',
+    date: '2026-10-31 15:30',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[3]],
+    extraProducts: [],
+    subtotal: 45000,
+    discountPercent: 0,
+    total: 45000,
+    paymentMethod: 'transferencia',
+    barberCommission: 22500,
+    shopGain: 22500,
+    isCommissionPaid: true,
+    clientName: 'Rodrigo Gómez'
+  },
+  {
+    id: 'sale-154',
+    invoiceNumber: 'FACT-094',
+    date: '2026-10-31 17:00',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[0]],
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: true,
+    clientName: 'Tomás Herrera'
+  },
+
+  // --- VIERNES: 2026-10-30 ---
+  {
+    id: 'sale-140',
+    invoiceNumber: 'FACT-080',
+    date: '2026-10-30 11:00',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[0]],
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: true,
+    clientName: 'Julián Castro'
+  },
+  {
+    id: 'sale-141',
+    invoiceNumber: 'FACT-081',
+    date: '2026-10-30 15:00',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[3]],
+    extraProducts: [],
+    subtotal: 45000,
+    discountPercent: 0,
+    total: 45000,
+    paymentMethod: 'transferencia',
+    barberCommission: 22500,
+    shopGain: 22500,
+    isCommissionPaid: true,
+    clientName: 'Sebastián Posada'
+  },
+  {
+    id: 'sale-142',
+    invoiceNumber: 'FACT-082',
+    date: '2026-10-30 16:30',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[9]],
+    extraProducts: [],
+    subtotal: 75000,
+    discountPercent: 0,
+    total: 75000,
+    paymentMethod: 'efectivo',
+    barberCommission: 37500,
+    shopGain: 37500,
+    isCommissionPaid: true,
+    clientName: 'Ignacio Ruiz'
+  },
+
+  // --- JUEVES: 2026-10-29 ---
   {
     id: 'sale-101',
     invoiceNumber: 'FACT-001',
     date: '2026-10-29 09:30',
     barberId: 'barber-john',
     barberName: 'John',
-    selectedServices: [
-      OFFICIAL_SERVICES[0] // Corte Legado ($30.000)
-    ],
+    selectedServices: [OFFICIAL_SERVICES[0]],
     extraProducts: [],
     subtotal: 30000,
     discountPercent: 0,
     total: 30000,
     paymentMethod: 'efectivo',
-    barberCommission: 15000, // 50%
+    barberCommission: 15000,
     shopGain: 15000,
     isCommissionPaid: false,
     clientName: 'Mateo Rojas'
@@ -250,30 +545,26 @@ export const INITIAL_SALES: Sale[] = [
     date: '2026-10-29 10:15',
     barberId: 'barber-orian',
     barberName: 'Orian',
-    selectedServices: [
-      OFFICIAL_SERVICES[9] // Experiencia Legado VIP ($75.000)
-    ],
-    extraProducts: [
-      { id: 'ext-1', name: 'Pomada Mate', price: 35000 }
-    ],
+    selectedServices: [OFFICIAL_SERVICES[9]],
+    extraProducts: [{ id: 'ext-1', name: 'Pomada Mate', price: 35000 }],
     subtotal: 110000,
     discountPercent: 0,
     total: 110000,
     paymentMethod: 'transferencia',
-    barberCommission: 37500, // 50% de $75.000
-    shopGain: 72500, // 50% de servicio ($37.500) + producto ($35.000)
+    barberCommission: 37500,
+    shopGain: 72500,
     isCommissionPaid: false,
     clientName: 'Daniel Cifuentes'
   },
+
+  // --- MIÉRCOLES: 2026-10-28 ---
   {
     id: 'sale-103',
     invoiceNumber: 'FACT-003',
     date: '2026-10-28 16:40',
     barberId: 'barber-david',
     barberName: 'David',
-    selectedServices: [
-      OFFICIAL_SERVICES[1] // Ritual de Barba ($20.000)
-    ],
+    selectedServices: [OFFICIAL_SERVICES[1]],
     extraProducts: [],
     subtotal: 20000,
     discountPercent: 0,
@@ -281,8 +572,136 @@ export const INITIAL_SALES: Sale[] = [
     paymentMethod: 'efectivo',
     barberCommission: 10000,
     shopGain: 10000,
-    isCommissionPaid: true, // already paid
+    isCommissionPaid: true,
     clientName: 'Samuel Restrepo'
+  },
+  {
+    id: 'sale-104',
+    invoiceNumber: 'FACT-004',
+    date: '2026-10-28 14:10',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[0]],
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: true,
+    clientName: 'Gabriel Velez'
+  },
+
+  // --- MARTES: 2026-10-27 ---
+  {
+    id: 'sale-105',
+    invoiceNumber: 'FACT-005',
+    date: '2026-10-27 15:20',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[3]],
+    extraProducts: [],
+    subtotal: 45000,
+    discountPercent: 0,
+    total: 45000,
+    paymentMethod: 'transferencia',
+    barberCommission: 22500,
+    shopGain: 22500,
+    isCommissionPaid: true,
+    clientName: 'Lucas Correa'
+  },
+
+  // --- LUNES: 2026-10-26 ---
+  {
+    id: 'sale-106',
+    invoiceNumber: 'FACT-006',
+    date: '2026-10-26 12:30',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[0]],
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: true,
+    clientName: 'Esteban Pino'
+  },
+
+  // --- HISTÓRICOS MESES ANTERIORES DE 2026 (Para gráfico anual) ---
+  // Septiembre 2026
+  {
+    id: 'sale-hist-09-1',
+    invoiceNumber: 'FACT-SEP-01',
+    date: '2026-09-15 15:00',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[9]],
+    extraProducts: [],
+    subtotal: 75000,
+    discountPercent: 0,
+    total: 75000,
+    paymentMethod: 'efectivo',
+    barberCommission: 37500,
+    shopGain: 37500,
+    isCommissionPaid: true,
+    clientName: 'Cliente General'
+  },
+  {
+    id: 'sale-hist-09-2',
+    invoiceNumber: 'FACT-SEP-02',
+    date: '2026-09-20 16:30',
+    barberId: 'barber-orian',
+    barberName: 'Orian',
+    selectedServices: [OFFICIAL_SERVICES[3]],
+    extraProducts: [],
+    subtotal: 45000,
+    discountPercent: 0,
+    total: 45000,
+    paymentMethod: 'transferencia',
+    barberCommission: 22500,
+    shopGain: 22500,
+    isCommissionPaid: true,
+    clientName: 'Cliente General'
+  },
+  // Agosto 2026
+  {
+    id: 'sale-hist-08-1',
+    invoiceNumber: 'FACT-AGO-01',
+    date: '2026-08-18 14:00',
+    barberId: 'barber-david',
+    barberName: 'David',
+    selectedServices: [OFFICIAL_SERVICES[0]],
+    extraProducts: [],
+    subtotal: 30000,
+    discountPercent: 0,
+    total: 30000,
+    paymentMethod: 'efectivo',
+    barberCommission: 15000,
+    shopGain: 15000,
+    isCommissionPaid: true,
+    clientName: 'Cliente General'
+  },
+  // Julio 2026
+  {
+    id: 'sale-hist-07-1',
+    invoiceNumber: 'FACT-JUL-01',
+    date: '2026-07-12 11:30',
+    barberId: 'barber-john',
+    barberName: 'John',
+    selectedServices: [OFFICIAL_SERVICES[3]],
+    extraProducts: [],
+    subtotal: 45000,
+    discountPercent: 0,
+    total: 45000,
+    paymentMethod: 'transferencia',
+    barberCommission: 22500,
+    shopGain: 22500,
+    isCommissionPaid: true,
+    clientName: 'Cliente General'
   }
 ];
 

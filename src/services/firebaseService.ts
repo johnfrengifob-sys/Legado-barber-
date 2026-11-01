@@ -132,6 +132,15 @@ export const saveClientToFirestore = async (client: ClientRecord) => {
   }
 };
 
+export const deleteClientFromFirestore = async (clientId: string) => {
+  const path = `clients/${clientId}`;
+  try {
+    await deleteDoc(doc(db, 'clients', clientId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+};
+
 // --- APPOINTMENTS ---
 export const subscribeToAppointments = (onData: (data: Appointment[]) => void) => {
   const path = 'appointments';

@@ -6,8 +6,9 @@ import {
   RefreshCw, Check, Sparkles, AlertCircle, FileText, UserPlus, X, Phone,
   QrCode, Copy, ExternalLink, Share2, Printer, Star, Edit3, Clock,
   Sliders, RotateCcw, Search, Tag, Eye, Globe, Smartphone, CheckCheck,
-  Settings2, Info
+  Settings2, Info, Gift, ShieldCheck, Scan, UserMinus
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { 
   Service, Barber, ClientRecord, Sale, Expense, InventoryItem, 
   PromotionBroadcast, ExpenseCategory, SaleItemExtra,
@@ -15,6 +16,7 @@ import {
 } from '../types';
 import { BarberLiquidationManager } from './BarberLiquidationManager';
 import { BarberContractManager } from './BarberContractManager';
+import { SalesAnalyticsChart } from './SalesAnalyticsChart';
 
 // Official public Shared App URL for Legado Barber Club in Google AI Studio
 export const CLOUD_PUBLIC_URL = 'https://ais-pre-p3or5h4onxhacpe54j56ts-387828498531.us-west2.run.app';
@@ -78,6 +80,8 @@ interface AdminPanelProps {
   onUpdateSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
   onAddExpense: (expense: Expense) => void;
+  onUpdateExpense?: (expense: Expense) => void;
+  onDeleteExpense?: (expenseId: string) => void;
   onSettleBarberCommissions: (barberId: string) => void;
   onSaveLiquidation?: (liq: BarberLiquidation) => void;
   onSaveContract?: (contract: BarberContract) => void;
@@ -93,6 +97,9 @@ interface AdminPanelProps {
   onDeleteService?: (serviceId: string) => void;
   onResetServices?: () => void;
   onRecordPriceChange?: (record: PriceChangeRecord) => void;
+  onUpdateClient?: (client: ClientRecord) => void;
+  onDeleteClient?: (clientId: string) => void;
+  onAddClient?: (newClient: ClientRecord) => void;
 }
 
 type AdminTab = 
@@ -101,7 +108,7 @@ type AdminTab =
   | 'personal'
   | 'gastos' 
   | 'liquidacion' 
-  | 'contratos'
+  | 'contratos' 
   | 'clientes' 
   | 'broadcast' 
   | 'historial' 
@@ -122,6 +129,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSale = () => {},
   onDeleteSale = () => {},
   onAddExpense,
+  onUpdateExpense = () => {},
+  onDeleteExpense = () => {},
   onSettleBarberCommissions,
   onSaveLiquidation = () => {},
   onSaveContract = () => {},
@@ -136,7 +145,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddService = () => {},
   onDeleteService = () => {},
   onResetServices = () => {},
-  onRecordPriceChange = () => {}
+  onRecordPriceChange = () => {},
+  onUpdateClient = () => {},
+  onDeleteClient = () => {},
+  onAddClient = () => {}
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('pos');
 
@@ -152,10 +164,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [posStep, setPosStep] = useState<1 | 2>(1);
   const [posSuccessMsg, setPosSuccessMsg] = useState('');
 
-  // Expenses State
+  // Expenses State & Actions (Edición, Eliminación y Búsqueda)
   const [expDescription, setExpDescription] = useState('');
   const [expAmount, setExpAmount] = useState<number>(0);
   const [expCategory, setExpCategory] = useState<ExpenseCategory>('insumos');
+  const [expSearchQuery, setExpSearchQuery] = useState('');
+  const [expCategoryFilter, setExpCategoryFilter] = useState<'todos' | ExpenseCategory>('todos');
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editExpDescription, setEditExpDescription] = useState('');
+  const [editExpAmount, setEditExpAmount] = useState<number>(0);
+  const [editExpCategory, setEditExpCategory] = useState<ExpenseCategory>('insumos');
+  const [editExpDate, setEditExpDate] = useState('');
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [expFeedbackMsg, setExpFeedbackMsg] = useState('');
+  const [historyView, setHistoryView] = useState<'ventas' | 'egresos'>('ventas');
 
   // Broadcast State
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -234,6 +256,251 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [barberToDelete, setBarberToDelete] = useState<Barber | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
   const [barberFeedbackMsg, setBarberFeedbackMsg] = useState<string>('');
+
+  // Client Management & QR Validation State
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [clientFilterStatus, setClientFilterStatus] = useState<'all' | 'rewards' | 'vip' | 'perfect'>('all');
+  const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientPhone, setEditClientPhone] = useState('');
+  const [editClientEmail, setEditClientEmail] = useState('');
+  const [editClientVisits, setEditClientVisits] = useState<number>(1);
+  const [editClientRating, setEditClientRating] = useState<number>(10);
+  const [editClientComments, setEditClientComments] = useState('');
+  const [editClientFreeFacial, setEditClientFreeFacial] = useState<boolean>(false);
+  const [editClientFreeHaircut, setEditClientFreeHaircut] = useState<boolean>(false);
+  const [editClientLastVisit, setEditClientLastVisit] = useState<string>('');
+
+  const [clientToDelete, setClientToDelete] = useState<ClientRecord | null>(null);
+
+  // New Client Modal
+  const [addClientModalOpen, setAddClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientVisits, setNewClientVisits] = useState<number>(1);
+  const [newClientRating, setNewClientRating] = useState<number>(10);
+  const [newClientComments, setNewClientComments] = useState('');
+
+  // Individual Client QR / Loyalty Pass Modal
+  const [clientQrCard, setClientQrCard] = useState<ClientRecord | null>(null);
+  const [copiedClientCardLink, setCopiedClientCardLink] = useState(false);
+
+  // Live QR Cashier Validator Modal
+  const [qrScannerModalOpen, setQrScannerModalOpen] = useState(false);
+  const [qrSearchTerm, setQrSearchTerm] = useState('');
+  const [clientFeedbackMsg, setClientFeedbackMsg] = useState('');
+
+  // Filtered clients list
+  const filteredClients = useMemo(() => {
+    return clients.filter((c) => {
+      const q = clientSearchQuery.toLowerCase().trim();
+      const matchesSearch = !q || (
+        c.clientName.toLowerCase().includes(q) ||
+        c.clientPhone.toLowerCase().includes(q) ||
+        (c.clientEmail && c.clientEmail.toLowerCase().includes(q)) ||
+        (c.comments && c.comments.toLowerCase().includes(q))
+      );
+
+      if (!matchesSearch) return false;
+
+      if (clientFilterStatus === 'rewards') {
+        return c.rewards.freeFacialCleaning || c.rewards.freeHaircut;
+      }
+      if (clientFilterStatus === 'vip') {
+        return c.totalVisits >= 5;
+      }
+      if (clientFilterStatus === 'perfect') {
+        return c.rating >= 10;
+      }
+      return true;
+    });
+  }, [clients, clientSearchQuery, clientFilterStatus]);
+
+  // Handlers for client editing, deleting, creation, and QR validation
+  const handleOpenEditClient = (cli: ClientRecord) => {
+    setEditingClient(cli);
+    setEditClientName(cli.clientName);
+    setEditClientPhone(cli.clientPhone);
+    setEditClientEmail(cli.clientEmail || '');
+    setEditClientVisits(cli.totalVisits);
+    setEditClientRating(cli.rating);
+    setEditClientComments(cli.comments || '');
+    setEditClientFreeFacial(!!cli.rewards.freeFacialCleaning);
+    setEditClientFreeHaircut(!!cli.rewards.freeHaircut);
+    setEditClientLastVisit(cli.lastVisit || new Date().toISOString().split('T')[0]);
+  };
+
+  const handleSaveEditClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+
+    const history = [...(editingClient.rewards?.history || [])];
+    if (editClientFreeFacial && !editingClient.rewards.freeFacialCleaning) {
+      if (!history.some(h => h.includes('Limpieza Facial'))) {
+        history.push(`Limpieza Facial asignada (${new Date().toISOString().split('T')[0]})`);
+      }
+    }
+    if (editClientFreeHaircut && !editingClient.rewards.freeHaircut) {
+      if (!history.some(h => h.includes('Corte Gratis'))) {
+        history.push(`Corte Gratis asignado (${new Date().toISOString().split('T')[0]})`);
+      }
+    }
+
+    const updated: ClientRecord = {
+      ...editingClient,
+      clientName: editClientName.trim() || editingClient.clientName,
+      clientPhone: editClientPhone.trim() || editingClient.clientPhone,
+      clientEmail: editClientEmail.trim() || editingClient.clientEmail,
+      totalVisits: Math.max(0, editClientVisits),
+      rating: editClientRating,
+      comments: editClientComments.trim(),
+      lastVisit: editClientLastVisit || editingClient.lastVisit,
+      rewards: {
+        freeFacialCleaning: editClientFreeFacial,
+        freeHaircut: editClientFreeHaircut,
+        history
+      }
+    };
+
+    onUpdateClient(updated);
+    if (clientQrCard && clientQrCard.id === updated.id) {
+      setClientQrCard(updated);
+    }
+    setEditingClient(null);
+    setClientFeedbackMsg(`Cliente ${updated.clientName} actualizado exitosamente.`);
+    setTimeout(() => setClientFeedbackMsg(''), 4000);
+  };
+
+  const handleConfirmDeleteClient = () => {
+    if (!clientToDelete) return;
+    const name = clientToDelete.clientName;
+    const id = clientToDelete.id;
+    onDeleteClient(id);
+    if (clientQrCard && clientQrCard.id === id) {
+      setClientQrCard(null);
+    }
+    setClientToDelete(null);
+    setClientFeedbackMsg(`Cliente ${name} eliminado permanentemente.`);
+    setTimeout(() => setClientFeedbackMsg(''), 4000);
+  };
+
+  const handleCreateNewClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName.trim() || !newClientPhone.trim()) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const initialVisits = Math.max(1, newClientVisits);
+    const newClient: ClientRecord = {
+      id: `cli-${Date.now()}`,
+      clientName: newClientName.trim(),
+      clientPhone: newClientPhone.trim(),
+      clientEmail: newClientEmail.trim() || `${newClientName.trim().toLowerCase().replace(/\s+/g, '')}@ejemplo.com`,
+      rating: newClientRating,
+      comments: newClientComments.trim() || 'Cliente registrado desde panel administrador.',
+      lastVisit: today,
+      totalVisits: initialVisits,
+      rewards: {
+        freeFacialCleaning: initialVisits >= 5,
+        freeHaircut: initialVisits >= 10,
+        history: [
+          ...(initialVisits >= 5 ? ['Limpieza Facial Gratis desbloqueada'] : []),
+          ...(initialVisits >= 10 ? ['Corte Gratis desbloqueado'] : [])
+        ]
+      }
+    };
+
+    onAddClient(newClient);
+    setAddClientModalOpen(false);
+    setNewClientName('');
+    setNewClientPhone('');
+    setNewClientEmail('');
+    setNewClientVisits(1);
+    setNewClientRating(10);
+    setNewClientComments('');
+    setClientFeedbackMsg(`Cliente ${newClient.clientName} registrado exitosamente.`);
+    setTimeout(() => setClientFeedbackMsg(''), 4000);
+  };
+
+  const handleQuickValidateVisit = (cli: ClientRecord) => {
+    const newTotalVisits = cli.totalVisits + 1;
+    const today = new Date().toISOString().split('T')[0];
+    const history = [...(cli.rewards?.history || [])];
+    let freeFacial = cli.rewards.freeFacialCleaning;
+    let freeHaircut = cli.rewards.freeHaircut;
+    let unlockedMsg = '';
+
+    if (newTotalVisits % 10 === 0) {
+      freeHaircut = true;
+      history.push(`Corte Gratis (Visita #${newTotalVisits})`);
+      unlockedMsg = `🎉 ¡Corte Gratis Desbloqueado para ${cli.clientName}!`;
+    } else if (newTotalVisits % 5 === 0) {
+      freeFacial = true;
+      history.push(`Limpieza Facial Gratis (Visita #${newTotalVisits})`);
+      unlockedMsg = `✨ ¡Limpieza Facial Gratis Desbloqueada para ${cli.clientName}!`;
+    }
+
+    const updated: ClientRecord = {
+      ...cli,
+      totalVisits: newTotalVisits,
+      lastVisit: today,
+      rewards: {
+        freeFacialCleaning: freeFacial,
+        freeHaircut: freeHaircut,
+        history
+      }
+    };
+
+    onUpdateClient(updated);
+    if (clientQrCard && clientQrCard.id === updated.id) {
+      setClientQrCard(updated);
+    }
+
+    try {
+      confetti({
+        particleCount: unlockedMsg ? 100 : 40,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#c5a059', '#38ef7d', '#11998e', '#ffffff']
+      });
+    } catch (e) {}
+
+    setClientFeedbackMsg(unlockedMsg || `¡Asistencia validada (+1 visita) para ${cli.clientName}! Total: ${newTotalVisits} visitas.`);
+    setTimeout(() => setClientFeedbackMsg(''), 4000);
+  };
+
+  const handleRedeemReward = (cli: ClientRecord, rewardType: 'facial' | 'corte') => {
+    const history = [...(cli.rewards?.history || [])];
+    const today = new Date().toISOString().split('T')[0];
+
+    let freeFacial = cli.rewards.freeFacialCleaning;
+    let freeHaircut = cli.rewards.freeHaircut;
+
+    if (rewardType === 'facial') {
+      freeFacial = false;
+      history.push(`Limpieza Facial canjeada en recepción el ${today}`);
+    } else {
+      freeHaircut = false;
+      history.push(`Corte Gratis canjeado en recepción el ${today}`);
+    }
+
+    const updated: ClientRecord = {
+      ...cli,
+      rewards: {
+        freeFacialCleaning: freeFacial,
+        freeHaircut: freeHaircut,
+        history
+      }
+    };
+
+    onUpdateClient(updated);
+    if (clientQrCard && clientQrCard.id === updated.id) {
+      setClientQrCard(updated);
+    }
+
+    setClientFeedbackMsg(`Recompensa (${rewardType === 'facial' ? 'Limpieza Facial' : 'Corte Gratis'}) canjeada exitosamente para ${cli.clientName}.`);
+    setTimeout(() => setClientFeedbackMsg(''), 4000);
+  };
 
   // Helper to get active editable values for a service (fallback to service's current values)
   const getServiceEditValues = (service: Service) => {
@@ -647,6 +914,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onAddExpense(newExp);
     setExpDescription('');
     setExpAmount(0);
+    setExpFeedbackMsg(`¡Egreso "${newExp.description}" de $${newExp.amount.toLocaleString('es-CO')} registrado exitosamente!`);
+    setTimeout(() => setExpFeedbackMsg(''), 4500);
+  };
+
+  const handleOpenEditExpense = (exp: Expense) => {
+    setEditingExpense(exp);
+    setEditExpDescription(exp.description);
+    setEditExpAmount(exp.amount);
+    setEditExpCategory(exp.category);
+    setEditExpDate(exp.date || new Date().toISOString().split('T')[0]);
+  };
+
+  const handleSaveEditExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense || !editExpDescription.trim() || editExpAmount <= 0) return;
+
+    const updatedExp: Expense = {
+      ...editingExpense,
+      description: editExpDescription.trim(),
+      amount: Number(editExpAmount),
+      category: editExpCategory,
+      date: editExpDate || editingExpense.date
+    };
+
+    onUpdateExpense(updatedExp);
+    setEditingExpense(null);
+    setExpFeedbackMsg(`¡Egreso "${updatedExp.description}" actualizado a $${updatedExp.amount.toLocaleString('es-CO')} COP con éxito!`);
+    setTimeout(() => setExpFeedbackMsg(''), 4500);
+  };
+
+  const handleConfirmDeleteExpense = () => {
+    if (!expenseToDelete) return;
+    const desc = expenseToDelete.description;
+    const amount = expenseToDelete.amount;
+    onDeleteExpense(expenseToDelete.id);
+    setExpenseToDelete(null);
+    setExpFeedbackMsg(`¡Egreso "${desc}" (-$${amount.toLocaleString('es-CO')} COP) eliminado del registro!`);
+    setTimeout(() => setExpFeedbackMsg(''), 4500);
+  };
+
+  const handleExportExpensesCsv = () => {
+    const headers = ['ID', 'Fecha', 'Categoria', 'Descripcion', 'Monto'];
+    const rows = expenses.map(e => [
+      e.id,
+      e.date,
+      `"${e.category}"`,
+      `"${e.description.replace(/"/g, '""')}"`,
+      e.amount
+    ]);
+    const csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Legado_Barber_Club_Egresos_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Submit Broadcast
@@ -893,6 +1218,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <button
               type="button"
               onClick={() => setEditSaleSuccessMsg('')}
+              className="text-xs text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
+        {/* Success toast if expense updated or removed */}
+        {expFeedbackMsg && (
+          <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>{expFeedbackMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExpFeedbackMsg('')}
               className="text-xs text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
             >
               Cerrar
@@ -1853,39 +2195,218 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </form>
           </div>
 
-          {/* Expenses List */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl overflow-hidden">
-            <h4 className="font-display font-bold text-base text-slate-900 dark:text-white mb-4">
-              Historial de Egresos Registrados
-            </h4>
-            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
-              <table className="w-full text-left text-xs min-w-[580px]">
-                <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
-                  <tr>
-                    <th className="py-2.5 px-3">Fecha</th>
-                    <th className="py-2.5 px-3">Categoría</th>
-                    <th className="py-2.5 px-3">Descripción</th>
-                    <th className="py-2.5 px-3 text-right">Monto</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                  {expenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
-                      <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-medium">{exp.date}</td>
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <span className="capitalize px-2 py-0.5 rounded-md bg-slate-200/80 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-800 dark:text-slate-200 font-semibold">
-                          {exp.category}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">{exp.description}</td>
-                      <td className="py-2.5 px-3 text-right font-bold text-rose-500 whitespace-nowrap">
-                        -${exp.amount.toLocaleString('es-CO')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Expenses Analytics & KPI Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="liquid-glass-card rounded-2xl p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                  Total Egresos Registrados
+                </span>
+                <span className="w-5 h-5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                  <DollarSign className="w-3 h-3" />
+                </span>
+              </div>
+              <div className="font-display font-extrabold text-lg text-rose-600 dark:text-rose-400">
+                -${totalExpensesAmount.toLocaleString('es-CO')}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                Salidas operativas del negocio
+              </span>
             </div>
+
+            <div className="liquid-glass-card rounded-2xl p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                  Total Comprobantes
+                </span>
+                <span className="w-5 h-5 rounded-md bg-[#c5a059]/15 text-[#c5a059] flex items-center justify-center shrink-0">
+                  <FileText className="w-3 h-3" />
+                </span>
+              </div>
+              <div className="font-display font-extrabold text-lg text-slate-900 dark:text-white">
+                {expenses.length} <span className="text-xs font-normal text-slate-500">registros</span>
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                Asientos de egreso en historial
+              </span>
+            </div>
+
+            <div className="liquid-glass-card rounded-2xl p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Gasto Promedio por Asiento
+                </span>
+                <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-500 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-3 h-3" />
+                </span>
+              </div>
+              <div className="font-display font-extrabold text-lg text-slate-900 dark:text-white">
+                ${expenses.length > 0 ? Math.round(totalExpensesAmount / expenses.length).toLocaleString('es-CO') : 0}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                Cálculo medio por transacción
+              </span>
+            </div>
+          </div>
+
+          {/* Expenses List with Search, Filter, Edit and Delete */}
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div>
+                <h4 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  Historial de Egresos Registrados
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Gestiona, edita montos, modifica fechas o elimina asientos de egreso con actualización inmediata de balances
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportExpensesCsv}
+                  className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Exportar egresos a formato Excel (.csv)"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Excel (.csv)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Search and Category Filter Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar egreso por descripción, notas o fecha (ej. luz, toallas, 2026-11)..."
+                  value={expSearchQuery}
+                  onChange={(e) => setExpSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#c5a059]"
+                />
+                {expSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setExpSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={expCategoryFilter}
+                  onChange={(e) => setExpCategoryFilter(e.target.value as any)}
+                  className="px-3 py-2 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                >
+                  <option value="todos">Todas las Categorías</option>
+                  <option value="alquiler">Alquiler</option>
+                  <option value="insumos">Insumos</option>
+                  <option value="servicios">Servicios</option>
+                  <option value="sueldos">Sueldos</option>
+                  <option value="publicidad">Publicidad</option>
+                  <option value="mantenimiento">Mantenimiento</option>
+                  <option value="otros">Otros</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Table */}
+            {expenses.filter(e => {
+              if (expCategoryFilter !== 'todos' && e.category !== expCategoryFilter) return false;
+              if (expSearchQuery.trim()) {
+                const q = expSearchQuery.toLowerCase().trim();
+                return e.description.toLowerCase().includes(q) || e.date.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
+              }
+              return true;
+            }).length === 0 ? (
+              <div className="p-8 text-center rounded-2xl bg-slate-100/60 dark:bg-[#02253f]/40 border border-dashed border-slate-300/80 dark:border-white/10 text-slate-500 dark:text-slate-400 text-xs space-y-1">
+                <Info className="w-6 h-6 mx-auto mb-2 text-[#c5a059]" />
+                <p className="font-semibold text-slate-700 dark:text-slate-200">
+                  No se encontraron egresos con los filtros aplicados.
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {expSearchQuery || expCategoryFilter !== 'todos' ? 'Intenta modificar el término de búsqueda o seleccionar otra categoría.' : 'Aún no se han registrado egresos. Puedes crear el primero en el formulario superior.'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+                <table className="w-full text-left text-xs min-w-[650px]">
+                  <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
+                    <tr>
+                      <th className="py-2.5 px-3">Fecha</th>
+                      <th className="py-2.5 px-3">Categoría</th>
+                      <th className="py-2.5 px-3">Descripción</th>
+                      <th className="py-2.5 px-3 text-right">Monto</th>
+                      <th className="py-2.5 px-3 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                    {expenses
+                      .filter(e => {
+                        if (expCategoryFilter !== 'todos' && e.category !== expCategoryFilter) return false;
+                        if (expSearchQuery.trim()) {
+                          const q = expSearchQuery.toLowerCase().trim();
+                          return e.description.toLowerCase().includes(q) || e.date.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
+                        }
+                        return true;
+                      })
+                      .map((exp) => {
+                        let badgeColor = 'bg-slate-500/15 border-slate-500/30 text-slate-700 dark:text-slate-300';
+                        if (exp.category === 'alquiler') badgeColor = 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300';
+                        else if (exp.category === 'insumos') badgeColor = 'bg-sky-500/15 border-sky-500/30 text-sky-700 dark:text-sky-300';
+                        else if (exp.category === 'servicios') badgeColor = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300';
+                        else if (exp.category === 'sueldos') badgeColor = 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300';
+                        else if (exp.category === 'publicidad') badgeColor = 'bg-pink-500/15 border-pink-500/30 text-pink-700 dark:text-pink-300';
+                        else if (exp.category === 'mantenimiento') badgeColor = 'bg-orange-500/15 border-orange-500/30 text-orange-700 dark:text-orange-300';
+
+                        return (
+                          <tr key={exp.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                            <td className="py-3 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-mono font-medium">
+                              {exp.date}
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span className={`capitalize px-2.5 py-1 rounded-full border text-[11px] font-bold ${badgeColor}`}>
+                                {exp.category}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+                              {exp.description}
+                            </td>
+                            <td className="py-3 px-3 text-right font-display font-bold text-rose-500 whitespace-nowrap text-sm">
+                              -${exp.amount.toLocaleString('es-CO')}
+                            </td>
+                            <td className="py-3 px-3 text-center whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditExpense(exp)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#c5a059]/15 hover:bg-[#c5a059] text-[#c5a059] hover:text-black border border-[#c5a059]/30 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                                  title="Editar descripción, monto, categoría o fecha de este egreso"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Editar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpenseToDelete(exp)}
+                                  className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                                  title="Eliminar este egreso del historial"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2042,77 +2563,335 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          {/* Tabla de Base de Datos de Clientes */}
-          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
+          {/* Base de Datos de Clientes & Validación QR */}
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-5">
+            {/* Header & Quick Action Buttons */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-white/10 pb-4">
               <div>
-                <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
-                  Base de Datos de Clientes & Validación QR
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Historial de visitas, calificaciones de 10 estrellas y recompensas de fidelización
+                <div className="flex items-center gap-2.5">
+                  <h3 className="font-display font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">
+                    Base de Datos de Clientes & Validación QR
+                  </h3>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#c5a059]/15 border border-[#c5a059]/30 text-[#c5a059]">
+                    {clients.length} clientes
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  Edita datos, elimina registros, genera carnets QR individuales y valida visitas o canjes en caja en tiempo real.
                 </p>
               </div>
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#c5a059]/15 border border-[#c5a059]/30 text-[#c5a059]">
-                {clients.length} clientes registrados
-              </span>
+
+              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQrSearchTerm('');
+                    setQrScannerModalOpen(true);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-200/80 dark:bg-[#02253f] hover:bg-[#c5a059] hover:text-black text-slate-800 dark:text-white border border-slate-300/80 dark:border-white/20 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                  title="Escanear o buscar cliente para validar visita en caja"
+                >
+                  <Scan className="w-4 h-4 text-[#c5a059]" />
+                  <span>Validar QR en Caja</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAddClientModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold text-xs flex items-center gap-1.5 shadow-md shadow-[#c5a059]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>Nuevo Cliente</span>
+                </button>
+              </div>
             </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
-            <table className="w-full text-left text-xs min-w-[720px]">
-              <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
-                <tr>
-                  <th className="py-2.5 px-3">Cliente</th>
-                  <th className="py-2.5 px-3">Teléfono / Email</th>
-                  <th className="py-2.5 px-3 text-center">Visitas</th>
-                  <th className="py-2.5 px-3 text-center">Calificación</th>
-                  <th className="py-2.5 px-3">Comentarios</th>
-                  <th className="py-2.5 px-3">Recompensas IA</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                {clients.map((cli) => (
-                  <tr key={cli.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
-                    <td className="py-3 px-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                      {cli.clientName}
-                    </td>
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <div className="text-slate-800 dark:text-slate-200 font-semibold">{cli.clientPhone}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-300">{cli.clientEmail}</div>
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold text-slate-900 dark:text-white">
-                      {cli.totalVisits}
-                    </td>
-                    <td className="py-3 px-3 text-center whitespace-nowrap font-bold text-[#c5a059]">
-                      ★ {cli.rating} / 10
-                    </td>
-                    <td className="py-3 px-3 text-slate-700 dark:text-slate-200 max-w-xs truncate font-medium">
-                      {cli.comments || '—'}
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="flex flex-wrap gap-1">
-                        {cli.rewards.freeFacialCleaning && (
-                          <span className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
-                            Limpieza Facial
-                          </span>
-                        )}
-                        {cli.rewards.freeHaircut && (
-                          <span className="text-[10px] bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-bold">
-                            Corte Gratis
-                          </span>
-                        )}
-                        {!cli.rewards.freeFacialCleaning && !cli.rewards.freeHaircut && (
-                          <span className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">En progreso ({cli.totalVisits}/5)</span>
-                        )}
-                      </div>
-                    </td>
+            {/* Success Feedback Alert */}
+            {clientFeedbackMsg && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{clientFeedbackMsg}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setClientFeedbackMsg('')}
+                  className="text-emerald-700 dark:text-emerald-300 hover:text-emerald-950 p-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Search Input & Status Filter Pills */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, teléfono o email..."
+                  value={clientSearchQuery}
+                  onChange={(e) => setClientSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+                {clientSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setClientSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setClientFilterStatus('all')}
+                  className={`px-3 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                    clientFilterStatus === 'all'
+                      ? 'bg-[#c5a059] text-black shadow-sm'
+                      : 'bg-slate-200/70 dark:bg-[#02253f] text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#033355]'
+                  }`}
+                >
+                  Todos ({clients.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setClientFilterStatus('rewards')}
+                  className={`px-3 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    clientFilterStatus === 'rewards'
+                      ? 'bg-[#c5a059] text-black shadow-sm'
+                      : 'bg-slate-200/70 dark:bg-[#02253f] text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#033355]'
+                  }`}
+                >
+                  <Gift className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Con Recompensa ({clients.filter(c => c.rewards.freeFacialCleaning || c.rewards.freeHaircut).length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setClientFilterStatus('vip')}
+                  className={`px-3 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    clientFilterStatus === 'vip'
+                      ? 'bg-[#c5a059] text-black shadow-sm'
+                      : 'bg-slate-200/70 dark:bg-[#02253f] text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#033355]'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>VIP (+5) ({clients.filter(c => c.totalVisits >= 5).length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setClientFilterStatus('perfect')}
+                  className={`px-3 py-2 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    clientFilterStatus === 'perfect'
+                      ? 'bg-[#c5a059] text-black shadow-sm'
+                      : 'bg-slate-200/70 dark:bg-[#02253f] text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-[#033355]'
+                  }`}
+                >
+                  <Star className="w-3.5 h-3.5 text-[#c5a059] fill-[#c5a059]" />
+                  <span>10★ ({clients.filter(c => c.rating >= 10).length})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+              <table className="w-full text-left text-xs min-w-[860px]">
+                <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
+                  <tr>
+                    <th className="py-3 px-3.5">Cliente</th>
+                    <th className="py-3 px-3.5">Teléfono / WhatsApp</th>
+                    <th className="py-3 px-3 text-center">Visitas</th>
+                    <th className="py-3 px-3 text-center">Calificación</th>
+                    <th className="py-3 px-3.5">Comentarios / Notas</th>
+                    <th className="py-3 px-3.5">Recompensas IA</th>
+                    <th className="py-3 px-3 text-center">Pase QR</th>
+                    <th className="py-3 px-3 text-center">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                  {filteredClients.length > 0 ? (
+                    filteredClients.map((cli) => {
+                      const hasRewards = cli.rewards.freeFacialCleaning || cli.rewards.freeHaircut;
+                      return (
+                        <tr key={cli.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                          {/* Client Name & ID */}
+                          <td className="py-3 px-3.5">
+                            <div className="font-bold text-slate-900 dark:text-white text-sm">
+                              {cli.clientName}
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+                              <span>ID: {cli.id}</span>
+                              {cli.lastVisit && (
+                                <span className="text-slate-400">· Última: {cli.lastVisit}</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Phone / Email */}
+                          <td className="py-3 px-3.5 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-800 dark:text-slate-200 font-semibold">{cli.clientPhone}</span>
+                              {cli.clientPhone && (
+                                <a
+                                  href={`https://wa.me/57${cli.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${cli.clientName}! Te saludamos de Legado Barber Club. Tienes ${cli.totalVisits} visitas acumuladas en tu carnet de fidelización.`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-500 hover:text-emerald-600 p-0.5"
+                                  title="Enviar WhatsApp al cliente"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[170px]">
+                              {cli.clientEmail || '—'}
+                            </div>
+                          </td>
+
+                          {/* Visits with Quick +1 button */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5 bg-slate-100/80 dark:bg-[#02253f] px-2 py-1 rounded-xl border border-slate-200 dark:border-white/10">
+                              <span className="font-display font-extrabold text-sm text-[#c5a059]">
+                                {cli.totalVisits}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickValidateVisit(cli)}
+                                className="w-5 h-5 rounded-md bg-[#c5a059] hover:bg-[#d4af37] text-black font-extrabold text-xs flex items-center justify-center transition-all cursor-pointer shadow-sm"
+                                title="Sumar +1 visita instantánea (validar asistencia en caja)"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Rating */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <span className="font-bold text-[#c5a059] bg-[#c5a059]/10 px-2.5 py-1 rounded-lg border border-[#c5a059]/20">
+                              ★ {cli.rating} / 10
+                            </span>
+                          </td>
+
+                          {/* Comments */}
+                          <td className="py-3 px-3.5 text-slate-700 dark:text-slate-200 max-w-[220px]">
+                            <p className="truncate font-medium text-xs" title={cli.comments || 'Sin comentarios registrados'}>
+                              {cli.comments || '—'}
+                            </p>
+                            {cli.rewards.history && cli.rewards.history.length > 0 && (
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold truncate mt-0.5" title={cli.rewards.history.join(' | ')}>
+                                ✓ {cli.rewards.history[cli.rewards.history.length - 1]}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Rewards & Redemption */}
+                          <td className="py-3 px-3.5">
+                            <div className="flex flex-col gap-1">
+                              {cli.rewards.freeFacialCleaning && (
+                                <div className="inline-flex items-center justify-between gap-1.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                  <span>Limpieza Facial</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRedeemReward(cli, 'facial')}
+                                    className="bg-emerald-600 text-white px-1.5 py-0.2 rounded hover:bg-emerald-500 cursor-pointer"
+                                    title="Marcar recompensa como canjeada"
+                                  >
+                                    Canjear
+                                  </button>
+                                </div>
+                              )}
+                              {cli.rewards.freeHaircut && (
+                                <div className="inline-flex items-center justify-between gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                  <span>Corte Gratis</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRedeemReward(cli, 'corte')}
+                                    className="bg-blue-600 text-white px-1.5 py-0.2 rounded hover:bg-blue-500 cursor-pointer"
+                                    title="Marcar recompensa como canjeada"
+                                  >
+                                    Canjear
+                                  </button>
+                                </div>
+                              )}
+                              {!hasRewards && (
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                  Progreso ({cli.totalVisits % 5}/5 para beneficio)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Pase QR Button */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCopiedClientCardLink(false);
+                                setClientQrCard(cli);
+                              }}
+                              className="px-2.5 py-1.5 rounded-xl bg-slate-200/80 dark:bg-[#02253f] hover:bg-[#c5a059] hover:text-black text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-white/15 text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                              title="Ver código QR personalizado y pase de membresía del cliente"
+                            >
+                              <QrCode className="w-3.5 h-3.5 text-[#c5a059]" />
+                              <span>Carnet QR</span>
+                            </button>
+                          </td>
+
+                          {/* Actions: Edit & Delete */}
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditClient(cli)}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#c5a059]/15 hover:bg-[#c5a059] text-[#c5a059] hover:text-black border border-[#c5a059]/30 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                                title="Editar datos, visitas y recompensas de este cliente"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Editar</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setClientToDelete(cli)}
+                                className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                                title="Eliminar cliente de la base de datos"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-slate-400">
+                        <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-[#c5a059]" />
+                        <p className="font-semibold text-xs">No se encontraron clientes que coincidan con la búsqueda.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setClientSearchQuery('');
+                            setClientFilterStatus('all');
+                          }}
+                          className="mt-2 text-xs text-[#c5a059] font-bold hover:underline"
+                        >
+                          Limpiar filtros de búsqueda
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* ============================================================== */}
@@ -2205,162 +2984,371 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* ============================================================== */}
       {activeTab === 'historial' && (
         <div className="space-y-6">
-          {/* Reactive KPI Metric Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-                Ingresos Totales Ventas
-              </span>
-              <div className="font-display font-extrabold text-lg sm:text-2xl text-[#c5a059]">
+          {/* Compact Informative KPI Metric Containers */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+            {/* Ingresos Totales Ventas */}
+            <div className="liquid-glass-card rounded-2xl p-2.5 sm:p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                  Ingresos Totales
+                </span>
+                <span className="w-5 h-5 rounded-md bg-[#c5a059]/15 text-[#c5a059] flex items-center justify-center shrink-0">
+                  <DollarSign className="w-3 h-3" />
+                </span>
+              </div>
+              <div className="font-display font-extrabold text-sm sm:text-base lg:text-lg text-[#c5a059] truncate">
                 ${totalSalesRevenue.toLocaleString('es-CO')}
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
-                {sales.length} transacciones registradas
+              <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
+                {sales.length} ventas registradas
               </span>
             </div>
 
-            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-                Ganancia Neta Sede
-              </span>
-              <div className="font-display font-extrabold text-lg sm:text-2xl text-blue-600 dark:text-blue-400">
+            {/* Ganancia Neta Sede */}
+            <div className="liquid-glass-card rounded-2xl p-2.5 sm:p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 truncate">
+                  Ganancia Sede
+                </span>
+                <span className="w-5 h-5 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-3 h-3" />
+                </span>
+              </div>
+              <div className="font-display font-extrabold text-sm sm:text-base lg:text-lg text-blue-600 dark:text-blue-400 truncate">
                 ${totalShopGains.toLocaleString('es-CO')}
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+              <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
                 Participación barbería (50%)
               </span>
             </div>
 
-            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
-                Comisiones Pagadas
-              </span>
-              <div className="font-display font-extrabold text-lg sm:text-2xl text-amber-600 dark:text-amber-400">
+            {/* Comisiones Pagadas */}
+            <div className="liquid-glass-card rounded-2xl p-2.5 sm:p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 truncate">
+                  Comisiones Barberos
+                </span>
+                <span className="w-5 h-5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Scissors className="w-3 h-3" />
+                </span>
+              </div>
+              <div className="font-display font-extrabold text-sm sm:text-base lg:text-lg text-amber-600 dark:text-amber-400 truncate">
                 ${totalBarberPaidCommissions.toLocaleString('es-CO')}
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
-                Liquidadas a barberos
+              <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
+                Liquidadas al equipo
               </span>
             </div>
 
-            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
-                Flujo de Caja Neto
-              </span>
-              <div className={`font-display font-extrabold text-lg sm:text-2xl ${netCashFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+            {/* Flujo de Caja Neto */}
+            <div className="liquid-glass-card rounded-2xl p-2.5 sm:p-3.5 border border-slate-200/80 dark:border-white/15 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 truncate">
+                  Flujo de Caja Neto
+                </span>
+                <span className="w-5 h-5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <Banknote className="w-3 h-3" />
+                </span>
+              </div>
+              <div className={`font-display font-extrabold text-sm sm:text-base lg:text-lg truncate ${netCashFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
                 ${netCashFlow.toLocaleString('es-CO')}
               </div>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+              <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5 truncate">
                 Ventas - Egresos
               </span>
             </div>
           </div>
 
-          {/* Transactions Table Card */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
-                  Historial de Transacciones e Ingresos
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Registro completo de facturación. Haz clic en "Editar" en cualquier fila para modificar su valor, fecha o barbero.
-                </p>
+          {/* Panel Gráfico Interactivo: Ventas de Día (Horas de mayor flujo), Semana (Efectivo), Mes y Año */}
+          <SalesAnalyticsChart sales={sales} barbers={barbers} />
+
+          {/* Dual History Table Card (Ventas e Ingresos / Egresos y Gastos) */}
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-5">
+            {/* View Selector Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHistoryView('ventas')}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    historyView === 'ventas'
+                      ? 'bg-[#c5a059] text-black shadow-md font-extrabold'
+                      : 'bg-slate-100/90 dark:bg-[#02253f] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10'
+                  }`}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>Ventas e Ingresos ({sales.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setHistoryView('egresos')}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    historyView === 'egresos'
+                      ? 'bg-rose-500 text-white shadow-md font-extrabold'
+                      : 'bg-slate-100/90 dark:bg-[#02253f] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10'
+                  }`}
+                >
+                  <DollarSign className="w-4 h-4" />
+                  <span>Egresos y Gastos ({expenses.length})</span>
+                </button>
               </div>
 
-              <button
-                onClick={handleExportCsv}
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md self-start sm:self-auto"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Descargar Archivo Excel (.csv)</span>
-              </button>
+              {historyView === 'ventas' ? (
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md self-start sm:self-auto"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Exportar Ventas (.csv)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleExportExpensesCsv}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md self-start sm:self-auto"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Exportar Egresos (.csv)</span>
+                </button>
+              )}
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
-              <table className="w-full text-left text-xs min-w-[820px]">
-                <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
-                  <tr>
-                    <th className="py-2.5 px-3">Factura</th>
-                    <th className="py-2.5 px-3">Fecha y Hora</th>
-                    <th className="py-2.5 px-3">Barbero</th>
-                    <th className="py-2.5 px-3">Servicios & Extras</th>
-                    <th className="py-2.5 px-3">Método</th>
-                    <th className="py-2.5 px-3 text-right">Total Ingreso</th>
-                    <th className="py-2.5 px-3 text-right">Comisión 50%</th>
-                    <th className="py-2.5 px-3 text-center">Liquidación</th>
-                    <th className="py-2.5 px-3 text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                  {sales.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
-                      <td className="py-3 px-3 font-mono font-bold text-[#c5a059] whitespace-nowrap">
-                        {s.invoiceNumber}
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
-                        {s.date}
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
-                        {s.barberName}
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
-                          {s.selectedServices.map(srv => srv.name).join(', ') || 'Productos'}
-                        </div>
-                        {s.extraProducts.length > 0 && (
-                          <div className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
-                            + {s.extraProducts.map(e => e.name).join(', ')}
-                          </div>
-                        )}
-                        {s.clientName && s.clientName !== 'Cliente General' && (
-                          <div className="text-[10px] text-[#c5a059] font-medium">
-                            Cliente: {s.clientName}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 capitalize text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">{s.paymentMethod}</td>
-                      <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                        ${s.total.toLocaleString('es-CO')}
-                      </td>
-                      <td className="py-3 px-3 text-right font-bold text-amber-500 whitespace-nowrap">
-                        ${s.barberCommission.toLocaleString('es-CO')}
-                      </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          s.isCommissionPaid 
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
-                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                        }`}>
-                          {s.isCommissionPaid ? 'Pagada' : 'Pendiente'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditSale(s)}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#c5a059]/15 hover:bg-[#c5a059] text-[#c5a059] hover:text-black border border-[#c5a059]/30 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
-                            title="Modificar valor, fecha y hora de este ingreso"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Modificar</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSaleToDelete(s)}
-                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
-                            title="Eliminar este registro de venta"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Sub-header description */}
+            <div>
+              <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                {historyView === 'ventas' ? 'Historial de Transacciones e Ingresos' : 'Historial de Egresos & Salidas de Caja'}
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                {historyView === 'ventas'
+                  ? 'Registro completo de facturación. Haz clic en "Modificar" para editar el valor o en el icono de papelera para eliminar.'
+                  : 'Historial oficial de egresos registrados. Haz clic en "Editar" para modificar monto, categoría o fecha, o en "Eliminar" para descartar.'}
+              </p>
             </div>
+
+            {/* VIEW 1: VENTAS */}
+            {historyView === 'ventas' && (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+                <table className="w-full text-left text-xs min-w-[820px]">
+                  <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
+                    <tr>
+                      <th className="py-2.5 px-3">Factura</th>
+                      <th className="py-2.5 px-3">Fecha y Hora</th>
+                      <th className="py-2.5 px-3">Barbero</th>
+                      <th className="py-2.5 px-3">Servicios & Extras</th>
+                      <th className="py-2.5 px-3">Método</th>
+                      <th className="py-2.5 px-3 text-right">Total Ingreso</th>
+                      <th className="py-2.5 px-3 text-right">Comisión 50%</th>
+                      <th className="py-2.5 px-3 text-center">Liquidación</th>
+                      <th className="py-2.5 px-3 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                    {sales.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                        <td className="py-3 px-3 font-mono font-bold text-[#c5a059] whitespace-nowrap">
+                          {s.invoiceNumber}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
+                          {s.date}
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                          {s.barberName}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">
+                            {s.selectedServices.map(srv => srv.name).join(', ') || 'Productos'}
+                          </div>
+                          {s.extraProducts.length > 0 && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
+                              + {s.extraProducts.map(e => e.name).join(', ')}
+                            </div>
+                          )}
+                          {s.clientName && s.clientName !== 'Cliente General' && (
+                            <div className="text-[10px] text-[#c5a059] font-medium">
+                              Cliente: {s.clientName}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 capitalize text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">{s.paymentMethod}</td>
+                        <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                          ${s.total.toLocaleString('es-CO')}
+                        </td>
+                        <td className="py-3 px-3 text-right font-bold text-amber-500 whitespace-nowrap">
+                          ${s.barberCommission.toLocaleString('es-CO')}
+                        </td>
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s.isCommissionPaid 
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                          }`}>
+                            {s.isCommissionPaid ? 'Pagada' : 'Pendiente'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditSale(s)}
+                              className="px-2.5 py-1.5 rounded-lg bg-[#c5a059]/15 hover:bg-[#c5a059] text-[#c5a059] hover:text-black border border-[#c5a059]/30 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                              title="Modificar valor, fecha y hora de este ingreso"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Modificar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSaleToDelete(s)}
+                              className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                              title="Eliminar este registro de venta"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* VIEW 2: EGRESOS */}
+            {historyView === 'egresos' && (
+              <div className="space-y-4">
+                {/* Search and Category Filter Toolbar */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar egreso por descripción o fecha..."
+                      value={expSearchQuery}
+                      onChange={(e) => setExpSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#c5a059]"
+                    />
+                    {expSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setExpSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={expCategoryFilter}
+                      onChange={(e) => setExpCategoryFilter(e.target.value as any)}
+                      className="px-3 py-2 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                    >
+                      <option value="todos">Todas las Categorías</option>
+                      <option value="alquiler">Alquiler</option>
+                      <option value="insumos">Insumos</option>
+                      <option value="servicios">Servicios</option>
+                      <option value="sueldos">Sueldos</option>
+                      <option value="publicidad">Publicidad</option>
+                      <option value="mantenimiento">Mantenimiento</option>
+                      <option value="otros">Otros</option>
+                    </select>
+                  </div>
+                </div>
+
+                {expenses.filter(e => {
+                  if (expCategoryFilter !== 'todos' && e.category !== expCategoryFilter) return false;
+                  if (expSearchQuery.trim()) {
+                    const q = expSearchQuery.toLowerCase().trim();
+                    return e.description.toLowerCase().includes(q) || e.date.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
+                  }
+                  return true;
+                }).length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl bg-slate-100/60 dark:bg-[#02253f]/40 border border-dashed border-slate-300/80 dark:border-white/10 text-slate-500 dark:text-slate-400 text-xs space-y-1">
+                    <Info className="w-6 h-6 mx-auto mb-2 text-[#c5a059]" />
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">
+                      No se encontraron egresos con los filtros aplicados.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+                    <table className="w-full text-left text-xs min-w-[650px]">
+                      <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
+                        <tr>
+                          <th className="py-2.5 px-3">Fecha</th>
+                          <th className="py-2.5 px-3">Categoría</th>
+                          <th className="py-2.5 px-3">Descripción</th>
+                          <th className="py-2.5 px-3 text-right">Monto</th>
+                          <th className="py-2.5 px-3 text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                        {expenses
+                          .filter(e => {
+                            if (expCategoryFilter !== 'todos' && e.category !== expCategoryFilter) return false;
+                            if (expSearchQuery.trim()) {
+                              const q = expSearchQuery.toLowerCase().trim();
+                              return e.description.toLowerCase().includes(q) || e.date.toLowerCase().includes(q) || e.category.toLowerCase().includes(q);
+                            }
+                            return true;
+                          })
+                          .map((exp) => {
+                            let badgeColor = 'bg-slate-500/15 border-slate-500/30 text-slate-700 dark:text-slate-300';
+                            if (exp.category === 'alquiler') badgeColor = 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300';
+                            else if (exp.category === 'insumos') badgeColor = 'bg-sky-500/15 border-sky-500/30 text-sky-700 dark:text-sky-300';
+                            else if (exp.category === 'servicios') badgeColor = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300';
+                            else if (exp.category === 'sueldos') badgeColor = 'bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300';
+                            else if (exp.category === 'publicidad') badgeColor = 'bg-pink-500/15 border-pink-500/30 text-pink-700 dark:text-pink-300';
+                            else if (exp.category === 'mantenimiento') badgeColor = 'bg-orange-500/15 border-orange-500/30 text-orange-700 dark:text-orange-300';
+
+                            return (
+                              <tr key={exp.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                                <td className="py-3 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-mono font-medium">
+                                  {exp.date}
+                                </td>
+                                <td className="py-3 px-3 whitespace-nowrap">
+                                  <span className={`capitalize px-2.5 py-1 rounded-full border text-[11px] font-bold ${badgeColor}`}>
+                                    {exp.category}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+                                  {exp.description}
+                                </td>
+                                <td className="py-3 px-3 text-right font-display font-bold text-rose-500 whitespace-nowrap text-sm">
+                                  -${exp.amount.toLocaleString('es-CO')}
+                                </td>
+                                <td className="py-3 px-3 text-center whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditExpense(exp)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-[#c5a059]/15 hover:bg-[#c5a059] text-[#c5a059] hover:text-black border border-[#c5a059]/30 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                                      title="Editar descripción, monto, categoría o fecha de este egreso"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>Editar</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpenseToDelete(exp)}
+                                      className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                                      title="Eliminar este egreso del historial"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3918,6 +4906,1014 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>Sí, Restablecer Todo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 1: EDITAR CLIENTE                                        */}
+      {/* ============================================================== */}
+      {editingClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-4 my-auto max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                    Editar Datos del Cliente
+                  </h3>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    ID: {editingClient.id}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingClient(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditClient} className="space-y-4 text-xs">
+              {/* Nombre */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Nombre Completo *</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              {/* Teléfono y Correo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#c5a059]" />
+                    <span>Teléfono / WhatsApp *</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editClientPhone}
+                    onChange={(e) => setEditClientPhone(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    value={editClientEmail}
+                    onChange={(e) => setEditClientEmail(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              {/* Visitas & Última Visita */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Visitas Totales Acumuladas *
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditClientVisits(Math.max(0, editClientVisits - 1))}
+                      className="w-9 h-9 rounded-xl bg-slate-200/80 dark:bg-[#02253f] hover:bg-slate-300 dark:hover:bg-[#033457] border border-slate-300 dark:border-white/10 text-slate-800 dark:text-white font-extrabold flex items-center justify-center cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="0"
+                      required
+                      value={editClientVisits}
+                      onChange={(e) => setEditClientVisits(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      className="flex-1 text-center font-display font-extrabold text-sm rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-[#c5a059] py-2 focus:outline-none focus:border-[#c5a059]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditClientVisits(editClientVisits + 1)}
+                      className="w-9 h-9 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] text-black font-extrabold flex items-center justify-center cursor-pointer shadow-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Fecha de Última Visita
+                  </label>
+                  <input
+                    type="date"
+                    value={editClientLastVisit}
+                    onChange={(e) => setEditClientLastVisit(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              {/* Rating 10-Stars Slider */}
+              <div className="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Star className="w-4 h-4 text-[#c5a059] fill-[#c5a059]" />
+                    <span>Calificación de Servicio (1 a 10)</span>
+                  </span>
+                  <span className="font-display font-extrabold text-sm text-[#c5a059] bg-[#c5a059]/15 px-2.5 py-0.5 rounded-full border border-[#c5a059]/30">
+                    {editClientRating} / 10 ★
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="1"
+                  value={editClientRating}
+                  onChange={(e) => setEditClientRating(parseInt(e.target.value, 10))}
+                  className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-[#c5a059]"
+                />
+                <div className="flex items-center justify-between pt-0.5">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((starVal) => (
+                    <button
+                      type="button"
+                      key={starVal}
+                      onClick={() => setEditClientRating(starVal)}
+                      className="cursor-pointer group p-0.5"
+                    >
+                      <Star
+                        className={`w-4 h-4 ${
+                          starVal <= editClientRating
+                            ? 'text-[#c5a059] fill-[#c5a059]'
+                            : 'text-slate-300 dark:text-slate-700'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Beneficios & Recompensas IA Checkboxes */}
+              <div className="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 space-y-2">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block">
+                  Recompensas Disponibles para Canje:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editClientFreeFacial}
+                      onChange={(e) => setEditClientFreeFacial(e.target.checked)}
+                      className="rounded accent-[#c5a059] w-4 h-4 cursor-pointer"
+                    />
+                    <div className="text-xs">
+                      <div className="font-bold text-emerald-600 dark:text-emerald-400">Limpieza Facial Gratis</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Hito cada 5 visitas</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editClientFreeHaircut}
+                      onChange={(e) => setEditClientFreeHaircut(e.target.checked)}
+                      className="rounded accent-[#c5a059] w-4 h-4 cursor-pointer"
+                    />
+                    <div className="text-xs">
+                      <div className="font-bold text-blue-600 dark:text-blue-400">Corte Gratis</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Hito cada 10 visitas</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Comentarios */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Comentarios, Preferencias o Notas de Servicio
+                </label>
+                <textarea
+                  rows={2}
+                  value={editClientComments}
+                  onChange={(e) => setEditClientComments(e.target.value)}
+                  placeholder="Preferencias de corte, productos favoritos, detalles especiales..."
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200/60 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = editingClient;
+                    setEditingClient(null);
+                    setClientToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl text-rose-500 hover:text-white hover:bg-rose-600 font-bold flex items-center gap-1 transition-all cursor-pointer text-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar Cliente</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingClient(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer text-xs"
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Guardar Cambios</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 2: CONFIRMAR ELIMINAR CLIENTE                            */}
+      {/* ============================================================== */}
+      {clientToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-[calc(100vw-2rem)] sm:max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-rose-500/30 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Eliminar este cliente?
+                </h3>
+                <span className="font-bold text-xs text-rose-500">
+                  {clientToDelete.clientName}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-[#02253f] border border-slate-200 dark:border-white/10 text-xs space-y-1.5">
+              <div><strong className="text-slate-800 dark:text-slate-200">Teléfono:</strong> {clientToDelete.clientPhone}</div>
+              <div><strong className="text-slate-800 dark:text-slate-200">Visitas acumuladas:</strong> {clientToDelete.totalVisits}</div>
+              <div><strong className="text-slate-800 dark:text-slate-200">Calificación:</strong> {clientToDelete.rating} / 10 ★</div>
+              {clientToDelete.rewards.freeFacialCleaning && (
+                <div className="text-emerald-500 font-bold">✓ Tiene Limpieza Facial pendiente</div>
+              )}
+              {clientToDelete.rewards.freeHaircut && (
+                <div className="text-blue-500 font-bold">✓ Tiene Corte Gratis pendiente</div>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Esta acción eliminará el registro permanentemente de la base de datos de Legado Barber Club. Su historial de visitas y carnet QR quedarán inhabilitados.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setClientToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteClient}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer text-xs"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Sí, Eliminar Permanentemente</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 3: REGISTRAR NUEVO CLIENTE                               */}
+      {/* ============================================================== */}
+      {addClientModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-4 my-auto max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                    Registrar Nuevo Cliente
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Alta directa en la base de datos de fidelización
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddClientModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewClient} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Nombre Completo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Ej. Santiago Benítez"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Teléfono / WhatsApp *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Ej. 312 345 6789"
+                    value={newClientPhone}
+                    onChange={(e) => setNewClientPhone(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Correo Electrónico (opcional)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="santiago@ejemplo.com"
+                    value={newClientEmail}
+                    onChange={(e) => setNewClientEmail(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Visitas Iniciales
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newClientVisits}
+                    onChange={(e) => setNewClientVisits(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Calificación Inicial (1 a 10)
+                  </label>
+                  <select
+                    value={newClientRating}
+                    onChange={(e) => setNewClientRating(parseInt(e.target.value, 10))}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs font-semibold focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                  >
+                    {[10, 9, 8, 7, 6, 5].map((val) => (
+                      <option key={val} value={val}>{val} Estrellas ★</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Notas de Preferencia o Servicio (opcional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Detalles sobre su estilo favorito o barbero habitual..."
+                  value={newClientComments}
+                  onChange={(e) => setNewClientComments(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/60 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setAddClientModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-105 active:scale-95 transition-all cursor-pointer text-xs"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Dar de Alta Cliente</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 4: CARNET QR & MEMBRESÍA DIGITAL DEL CLIENTE             */}
+      {/* ============================================================== */}
+      {clientQrCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white">
+                    Carnet Digital & Validación QR
+                  </h3>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    ID: {clientQrCard.id}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClientQrCard(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Printable Graphic Digital Card */}
+            <div id="client-printable-card" className="bg-gradient-to-b from-[#011d32] to-[#022846] text-white p-5 rounded-3xl border border-[#c5a059]/40 shadow-xl space-y-3.5 text-center">
+              <div className="space-y-0.5">
+                <div className="font-display font-black text-lg tracking-wider text-white">
+                  LEGADO <span className="text-[#c5a059]">BARBER CLUB</span>
+                </div>
+                <div className="text-[10px] uppercase tracking-widest text-[#c5a059] font-bold">
+                  Membresía Exclusiva de Fidelización
+                </div>
+              </div>
+
+              {/* Scannable Client QR */}
+              <div className="p-3 bg-white rounded-2xl inline-block shadow-md">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(clientPortalUrl + '&client=' + clientQrCard.id + '&phone=' + clientQrCard.clientPhone)}&bgcolor=ffffff&color=011d32&margin=4`}
+                  alt={`Código QR de ${clientQrCard.clientName}`}
+                  className="w-44 h-44 mx-auto object-contain rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="font-display font-bold text-base text-white">
+                  {clientQrCard.clientName}
+                </div>
+                <div className="text-xs text-slate-300 font-mono">
+                  {clientQrCard.clientPhone}
+                </div>
+              </div>
+
+              {/* Progress & Stats */}
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-left">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-300">Visitas Acumuladas</span>
+                  <span className="font-display font-extrabold text-[#c5a059] text-sm">
+                    {clientQrCard.totalVisits} visitas
+                  </span>
+                </div>
+
+                <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#c5a059] to-emerald-400 transition-all duration-300"
+                    style={{ width: `${Math.min(100, ((clientQrCard.totalVisits || 1) % 10) * 10)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>Próximo beneficio en {5 - (clientQrCard.totalVisits % 5)} visitas</span>
+                  <span className="text-[#c5a059] font-semibold">Limpieza / Corte Gratis</span>
+                </div>
+              </div>
+
+              {/* Unlocked Reward Highlights */}
+              {(clientQrCard.rewards.freeFacialCleaning || clientQrCard.rewards.freeHaircut) && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold space-y-1">
+                  <div>🎉 ¡Beneficios listos para canjear!</div>
+                  <div className="flex flex-wrap justify-center gap-1.5 text-[11px]">
+                    {clientQrCard.rewards.freeFacialCleaning && (
+                      <span className="bg-emerald-600/60 px-2 py-0.5 rounded-full">Limpieza Facial</span>
+                    )}
+                    {clientQrCard.rewards.freeHaircut && (
+                      <span className="bg-blue-600/60 px-2 py-0.5 rounded-full">Corte Gratis</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Action Toolbar */}
+            <div className="space-y-2 pt-1 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickValidateVisit(clientQrCard)}
+                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center justify-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                  <span>+1 Validar Visita</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toEdit = clientQrCard;
+                    setClientQrCard(null);
+                    handleOpenEditClient(toEdit);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-slate-200/80 dark:bg-[#02253f] hover:bg-slate-300 dark:hover:bg-[#033457] border border-slate-300 dark:border-white/20 text-slate-800 dark:text-white font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Edit3 className="w-4 h-4 text-[#c5a059]" />
+                  <span>Editar Cliente</span>
+                </button>
+              </div>
+
+              {/* Canjear buttons if available */}
+              {clientQrCard.rewards.freeFacialCleaning && (
+                <button
+                  type="button"
+                  onClick={() => handleRedeemReward(clientQrCard, 'facial')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Gift className="w-4 h-4" />
+                  <span>Canjear Limpieza Facial Gratis</span>
+                </button>
+              )}
+
+              {clientQrCard.rewards.freeHaircut && (
+                <button
+                  type="button"
+                  onClick={() => handleRedeemReward(clientQrCard, 'corte')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Gift className="w-4 h-4" />
+                  <span>Canjear Corte Gratis</span>
+                </button>
+              )}
+
+              {/* Sharing & WhatsApp */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <a
+                  href={`https://wa.me/57${clientQrCard.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola ${clientQrCard.clientName}! Te compartimos tu carnet digital de fidelización en Legado Barber Club. Cuentas con ${clientQrCard.totalVisits} visitas acumuladas.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Enviar WhatsApp</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDel = clientQrCard;
+                    setClientQrCard(null);
+                    setClientToDelete(toDel);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 border border-rose-500/20 font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Eliminar Registro</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL 5: VALIDADOR QR & ESCANEO EN CAJA EN TIEMPO REAL         */}
+      {/* ============================================================== */}
+      {qrScannerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-xl liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-4 my-auto max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <Scan className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                    Validador QR de Caja en Tiempo Real
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Ingresa o escanea el teléfono o código del cliente para registrar visita o canjear
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrScannerModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick search / scanner input */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                Escanear QR o Teclear Celular / Código de Cliente:
+              </label>
+              <div className="relative">
+                <Scan className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#c5a059]" />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Ej. 312 456 7890 o cli-1 o nombre..."
+                  value={qrSearchTerm}
+                  onChange={(e) => setQrSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-9 py-3 rounded-2xl bg-white dark:bg-[#02253f] border-2 border-[#c5a059]/40 focus:border-[#c5a059] text-slate-900 dark:text-white font-mono text-sm focus:outline-none shadow-sm"
+                />
+                {qrSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setQrSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Results list */}
+            <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+              {clients
+                .filter(c => {
+                  if (!qrSearchTerm.trim()) return true;
+                  const q = qrSearchTerm.toLowerCase().trim();
+                  return (
+                    c.clientName.toLowerCase().includes(q) ||
+                    c.clientPhone.toLowerCase().includes(q) ||
+                    c.id.toLowerCase().includes(q)
+                  );
+                })
+                .slice(0, 5)
+                .map((cli) => {
+                  const hasReward = cli.rewards.freeFacialCleaning || cli.rewards.freeHaircut;
+                  return (
+                    <div
+                      key={cli.id}
+                      className="p-4 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white text-sm">
+                            {cli.clientName}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                            {cli.clientPhone} · {cli.totalVisits} visitas registradas
+                          </div>
+                        </div>
+
+                        <span className="font-bold text-xs text-[#c5a059] bg-[#c5a059]/15 px-2.5 py-1 rounded-full border border-[#c5a059]/30">
+                          ★ {cli.rating} / 10
+                        </span>
+                      </div>
+
+                      {/* Reward pills if unlocked */}
+                      {hasReward && (
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {cli.rewards.freeFacialCleaning && (
+                            <div className="inline-flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-2.5 py-1 rounded-xl font-bold">
+                              <span>Limpieza Facial Lista</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRedeemReward(cli, 'facial')}
+                                className="bg-emerald-600 text-white px-2 py-0.5 rounded-md hover:bg-emerald-500 text-[11px]"
+                              >
+                                Canjear
+                              </button>
+                            </div>
+                          )}
+                          {cli.rewards.freeHaircut && (
+                            <div className="inline-flex items-center gap-1.5 bg-blue-500/20 border border-blue-500/40 text-blue-400 px-2.5 py-1 rounded-xl font-bold">
+                              <span>Corte Gratis Listo</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRedeemReward(cli, 'corte')}
+                                className="bg-blue-600 text-white px-2 py-0.5 rounded-md hover:bg-blue-500 text-[11px]"
+                              >
+                                Canjear
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQrScannerModalOpen(false);
+                              handleOpenEditClient(cli);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-[#c5a059] hover:text-black transition-colors"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQrScannerModalOpen(false);
+                              setClientToDelete(cli);
+                            }}
+                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/20 transition-colors"
+                            title="Eliminar cliente"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQrScannerModalOpen(false);
+                              setClientQrCard(cli);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-[#c5a059] hover:text-black font-bold flex items-center gap-1 transition-colors"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Ver Carnet</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleQuickValidateVisit(cli)}
+                            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1 shadow-sm hover:scale-105 active:scale-95 transition-all"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>+1 Validar Visita</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {clients.filter(c => {
+                if (!qrSearchTerm.trim()) return true;
+                const q = qrSearchTerm.toLowerCase().trim();
+                return (
+                  c.clientName.toLowerCase().includes(q) ||
+                  c.clientPhone.toLowerCase().includes(q) ||
+                  c.id.toLowerCase().includes(q)
+                );
+              }).length === 0 && (
+                <div className="p-6 text-center text-slate-400 space-y-2">
+                  <p className="text-xs">No se encontró ningún cliente con ese teléfono o código.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewClientPhone(qrSearchTerm.replace(/\D/g, ''));
+                      setQrScannerModalOpen(false);
+                      setAddClientModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-[#c5a059] text-black rounded-xl font-bold text-xs hover:bg-[#d4af37] transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Crear Nuevo Cliente con este número</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: EDITAR EGRESO REGISTRADO                                */}
+      {/* ============================================================== */}
+      {editingExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-6 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-5 my-auto max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                    Modificar Egreso Registrado
+                  </h3>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    ID: {editingExpense.id}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingExpense(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditExpense} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Descripción del Gasto *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Compra de toallas, recibo de internet..."
+                  value={editExpDescription}
+                  onChange={(e) => setEditExpDescription(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Monto ($ COP) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={editExpAmount || ''}
+                    onChange={(e) => setEditExpAmount(parseFloat(e.target.value) || 0)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Categoría *
+                  </label>
+                  <select
+                    value={editExpCategory}
+                    onChange={(e) => setEditExpCategory(e.target.value as any)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                  >
+                    <option value="alquiler">Alquiler</option>
+                    <option value="insumos">Insumos</option>
+                    <option value="servicios">Servicios</option>
+                    <option value="sueldos">Sueldos</option>
+                    <option value="publicidad">Publicidad</option>
+                    <option value="mantenimiento">Mantenimiento</option>
+                    <option value="otros">Otros</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Fecha del Asiento Contable (YYYY-MM-DD) *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editExpDate}
+                  onChange={(e) => setEditExpDate(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[11px] flex items-start gap-2">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  Al guardar los cambios, el balance de egresos y el flujo de caja neto de la barbería se recalcularán de inmediato.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/60 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] text-black font-bold flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer text-xs"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Guardar Modificación</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CONFIRMAR ELIMINACIÓN DE EGRESO                         */}
+      {/* ============================================================== */}
+      {expenseToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md liquid-glass-card rounded-3xl p-6 sm:p-7 shadow-2xl relative border border-rose-500/30 space-y-4 my-auto">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-500 flex items-center justify-center font-bold shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Eliminar este Egreso?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Esta acción revertirá la salida de dinero en la contabilidad
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/10 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Fecha:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">{expenseToDelete.date}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Categoría:</span>
+                <span className="capitalize font-bold text-[#c5a059]">{expenseToDelete.category}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Descripción:</span>
+                <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[200px]">
+                  {expenseToDelete.description}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-white/10">
+                <span className="font-bold text-slate-700 dark:text-slate-300">Monto a Descontar:</span>
+                <span className="font-display font-extrabold text-base text-rose-500">
+                  -${expenseToDelete.amount.toLocaleString('es-CO')} COP
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Al confirmar, el monto se sumará de nuevo al Flujo de Caja Neto de Legado Barber Club.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setExpenseToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteExpense}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer text-xs"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Sí, Eliminar Egreso</span>
               </button>
             </div>
           </div>

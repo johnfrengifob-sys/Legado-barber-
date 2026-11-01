@@ -27,12 +27,14 @@ import {
   deleteBarberFromFirestore,
   subscribeToClients,
   saveClientToFirestore,
+  deleteClientFromFirestore,
   subscribeToAppointments,
   saveAppointmentToFirestore,
   subscribeToSales,
   saveSaleToFirestore,
   subscribeToExpenses,
   saveExpenseToFirestore,
+  deleteExpenseFromFirestore,
   subscribeToInventory,
   saveInventoryItemToFirestore,
   subscribeToPromotions,
@@ -138,7 +140,23 @@ export default function App() {
 
   const [sales, setSales] = useState<Sale[]>(() => {
     const saved = localStorage.getItem('legado_sales_v2');
-    return saved ? JSON.parse(saved) : INITIAL_SALES;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          if (parsed.length >= INITIAL_SALES.length) {
+            return parsed;
+          }
+          // Merge missing initial sales by ID
+          const existingIds = new Set(parsed.map((p: any) => p.id));
+          const additions = INITIAL_SALES.filter(s => !existingIds.has(s.id));
+          return [...parsed, ...additions];
+        }
+      } catch (e) {
+        console.error('Error parsing sales from storage:', e);
+      }
+    }
+    return INITIAL_SALES;
   });
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
@@ -428,6 +446,28 @@ export default function App() {
     return { updatedClient, rewardUnlocked };
   };
 
+  // Client Management Handlers (Edit, Delete, Add directly from Admin Database & QR)
+  const handleUpdateClient = (updatedClient: ClientRecord) => {
+    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+    saveClientToFirestore(updatedClient).catch((err) => {
+      console.warn('Could not sync updated client to Firestore:', err);
+    });
+  };
+
+  const handleDeleteClient = (clientId: string) => {
+    setClients(prev => prev.filter(c => c.id !== clientId));
+    deleteClientFromFirestore(clientId).catch((err) => {
+      console.warn('Could not delete client from Firestore:', err);
+    });
+  };
+
+  const handleAddClient = (newClient: ClientRecord) => {
+    setClients(prev => [newClient, ...prev]);
+    saveClientToFirestore(newClient).catch((err) => {
+      console.warn('Could not sync new client to Firestore:', err);
+    });
+  };
+
   // Appointments Handlers
   const handleBookAppointment = (apt: Appointment) => {
     setAppointments(prev => [apt, ...prev]);
@@ -492,6 +532,20 @@ export default function App() {
     setExpenses(prev => [expense, ...prev]);
     saveExpenseToFirestore(expense).catch((err) => {
       console.warn('Could not sync expense to Firestore:', err);
+    });
+  };
+
+  const handleUpdateExpense = (updatedExpense: Expense) => {
+    setExpenses(prev => prev.map(e => (e.id === updatedExpense.id ? updatedExpense : e)));
+    saveExpenseToFirestore(updatedExpense).catch((err) => {
+      console.warn('Could not sync updated expense to Firestore:', err);
+    });
+  };
+
+  const handleDeleteExpense = (expenseId: string) => {
+    setExpenses(prev => prev.filter(e => e.id !== expenseId));
+    deleteExpenseFromFirestore(expenseId).catch((err) => {
+      console.warn('Could not delete expense from Firestore:', err);
     });
   };
 
@@ -701,6 +755,8 @@ export default function App() {
             onUpdateSale={handleUpdateSale}
             onDeleteSale={handleDeleteSale}
             onAddExpense={handleAddExpense}
+            onUpdateExpense={handleUpdateExpense}
+            onDeleteExpense={handleDeleteExpense}
             onSettleBarberCommissions={handleSettleBarberCommissions}
             onSaveLiquidation={handleSaveLiquidation}
             onSaveContract={handleSaveContract}
@@ -716,6 +772,9 @@ export default function App() {
             onDeleteService={handleDeleteService}
             onResetServices={handleResetServices}
             onRecordPriceChange={handleRecordPriceChange}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+            onAddClient={handleAddClient}
           />
         )}
       </main>
