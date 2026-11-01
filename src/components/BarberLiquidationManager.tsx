@@ -619,8 +619,8 @@ ${liq.deductionAmount > 0 ? `🔻 *Deducciones / Anticipos (${liq.deductionReaso
               No hay liquidaciones firmadas aún. Cuando liquides a un barbero, los comprobantes aparecerán archivados aquí.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+              <table className="w-full text-left text-xs min-w-[720px]">
                 <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                   <tr>
                     <th className="py-3 px-3">Comprobante</th>

@@ -12,7 +12,7 @@ import {
 import { 
   Service, Barber, ClientRecord, Sale, Expense, InventoryItem, 
   PromotionBroadcast, Appointment, ActiveTheme, ActivePanel,
-  BarberLiquidation, BarberContract 
+  BarberLiquidation, BarberContract, PriceChangeRecord 
 } from './types';
 import { TopNav } from './components/TopNav';
 import { HomePortal } from './components/HomePortal';
@@ -42,6 +42,12 @@ import {
   subscribeToContracts,
   saveContractToFirestore,
   deleteContractFromFirestore,
+  subscribeToServices,
+  saveServiceToFirestore,
+  deleteServiceFromFirestore,
+  subscribeToPriceChanges,
+  savePriceChangeToFirestore,
+  deleteSaleFromFirestore,
   subscribeToAuth,
   logoutUser
 } from './services/firebaseService';
@@ -53,8 +59,58 @@ export default function App() {
     return saved || 'system';
   });
 
-  // Current Active Panel (home, clientes, barberos, admin)
-  const [currentPanel, setCurrentPanel] = useState<ActivePanel>('home');
+  // Helper to determine initial panel from URL
+  const getPanelFromUrl = (): ActivePanel => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const requested = (params.get('panel') || params.get('view') || params.get('portal'))?.toLowerCase();
+      if (requested === 'clientes' || params.has('asistencia') || params.has('qr')) {
+        return 'clientes';
+      }
+      if (requested === 'barberos') return 'barberos';
+      if (requested === 'admin') return 'admin';
+      
+      const hash = window.location.hash.toLowerCase();
+      if (hash === '#qr' || hash === '#clientes' || hash === '#asistencia') {
+        return 'clientes';
+      }
+      if (hash === '#barberos') return 'barberos';
+      if (hash === '#admin') return 'admin';
+    }
+    return 'home';
+  };
+
+  // Current Active Panel (home, clientes, barberos, admin) with URL param support for QR link
+  const [currentPanel, setCurrentPanel] = useState<ActivePanel>(() => getPanelFromUrl());
+
+  // URL Sync for direct QR code link & navigation
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const resolved = getPanelFromUrl();
+      setCurrentPanel(resolved);
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
+
+  const navigateToPanel = (panel: ActivePanel) => {
+    setCurrentPanel(panel);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (panel === 'home') {
+        url.searchParams.delete('panel');
+        url.hash = '';
+      } else {
+        url.searchParams.set('panel', panel);
+      }
+      window.history.pushState({}, '', url.toString());
+    }
+  };
 
   // PIN Modal State
   const [pinModalOpen, setPinModalOpen] = useState(false);
@@ -65,7 +121,10 @@ export default function App() {
   const [isCloudSynced, setIsCloudSynced] = useState(true);
 
   // Persistent Business State in localStorage & Firebase
-  const [services] = useState<Service[]>(OFFICIAL_SERVICES);
+  const [services, setServices] = useState<Service[]>(() => {
+    const saved = localStorage.getItem('legado_services_v2');
+    return saved ? JSON.parse(saved) : OFFICIAL_SERVICES;
+  });
 
   const [barbers, setBarbers] = useState<Barber[]>(() => {
     const saved = localStorage.getItem('legado_barbers_v2');
@@ -109,6 +168,11 @@ export default function App() {
 
   const [contracts, setContracts] = useState<BarberContract[]>(() => {
     const saved = localStorage.getItem('legado_contracts_v1');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [priceChanges, setPriceChanges] = useState<PriceChangeRecord[]>(() => {
+    const saved = localStorage.getItem('legado_price_changes_v1');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -164,6 +228,18 @@ export default function App() {
         setContracts(data);
         setIsCloudSynced(true);
       });
+      const unsubServices = subscribeToServices((data) => {
+        if (data && data.length > 0) {
+          setServices(data);
+          setIsCloudSynced(true);
+        }
+      });
+      const unsubPriceChanges = subscribeToPriceChanges((data) => {
+        if (data) {
+          setPriceChanges(data);
+          setIsCloudSynced(true);
+        }
+      });
 
       return () => {
         unsubBarbers();
@@ -175,6 +251,8 @@ export default function App() {
         unsubPromotions();
         unsubLiquidations();
         unsubContracts();
+        unsubServices();
+        unsubPriceChanges();
       };
     } catch (e) {
       console.warn('Real-time Firestore listeners running in local mode:', e);
@@ -195,8 +273,8 @@ export default function App() {
       } else {
         root.classList.remove('dark');
         root.classList.add('light');
-        document.body.style.backgroundColor = '#f8fafc';
-        document.body.style.color = '#0f172a';
+        document.body.style.backgroundColor = '#011d32';
+        document.body.style.color = '#f8fafc';
       }
     };
 
@@ -240,6 +318,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('legado_promotions_v2', JSON.stringify(promotions));
   }, [promotions]);
+
+  useEffect(() => {
+    localStorage.setItem('legado_services_v2', JSON.stringify(services));
+  }, [services]);
+
+  useEffect(() => {
+    localStorage.setItem('legado_price_changes_v1', JSON.stringify(priceChanges));
+  }, [priceChanges]);
 
   // PIN Access Handlers
   const handleOpenPin = (target: 'barberos' | 'admin') => {
@@ -387,6 +473,20 @@ export default function App() {
     }
   };
 
+  const handleUpdateSale = (updatedSale: Sale) => {
+    setSales(prev => prev.map(s => (s.id === updatedSale.id ? updatedSale : s)));
+    saveSaleToFirestore(updatedSale).catch((err) => {
+      console.warn('Could not sync updated sale to Firestore:', err);
+    });
+  };
+
+  const handleDeleteSale = (saleId: string) => {
+    setSales(prev => prev.filter(s => s.id !== saleId));
+    deleteSaleFromFirestore(saleId).catch((err) => {
+      console.warn('Could not delete sale from Firestore:', err);
+    });
+  };
+
   // Expenses Handlers
   const handleAddExpense = (expense: Expense) => {
     setExpenses(prev => [expense, ...prev]);
@@ -448,6 +548,21 @@ export default function App() {
     });
   };
 
+  const handleToggleBarberStatus = (barberId: string, active: boolean) => {
+    setBarbers(prev =>
+      prev.map(b => {
+        if (b.id === barberId) {
+          const updated = { ...b, active };
+          saveBarberToFirestore(updated).catch((err) => {
+            console.warn('Could not update barber status in Firestore:', err);
+          });
+          return updated;
+        }
+        return b;
+      })
+    );
+  };
+
   const handleDeleteBarber = (barberId: string) => {
     setBarbers(prev => prev.filter(b => b.id !== barberId));
     deleteBarberFromFirestore(barberId).catch((err) => {
@@ -492,12 +607,48 @@ export default function App() {
     });
   };
 
+  // Service Management Handlers
+  const handleUpdateService = (updatedService: Service) => {
+    setServices(prev => prev.map(s => s.id === updatedService.id ? updatedService : s));
+    saveServiceToFirestore(updatedService).catch((err) => {
+      console.warn('Could not sync service to Firestore:', err);
+    });
+  };
+
+  const handleAddService = (newService: Service) => {
+    setServices(prev => [...prev, newService]);
+    saveServiceToFirestore(newService).catch((err) => {
+      console.warn('Could not sync new service to Firestore:', err);
+    });
+  };
+
+  const handleDeleteService = (serviceId: string) => {
+    setServices(prev => prev.filter(s => s.id !== serviceId));
+    deleteServiceFromFirestore(serviceId).catch((err) => {
+      console.warn('Could not delete service from Firestore:', err);
+    });
+  };
+
+  const handleResetServices = () => {
+    setServices(OFFICIAL_SERVICES);
+    OFFICIAL_SERVICES.forEach(s => {
+      saveServiceToFirestore(s).catch(console.warn);
+    });
+  };
+
+  const handleRecordPriceChange = (record: PriceChangeRecord) => {
+    setPriceChanges(prev => [record, ...prev.filter(r => r.id !== record.id)]);
+    savePriceChangeToFirestore(record).catch((err) => {
+      console.warn('Could not sync price change audit log to Firestore:', err);
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
       {/* Top Navbar with Logo, Breadcrumbs, Theme Switcher and Firebase status */}
       <TopNav
         currentPanel={currentPanel}
-        onNavigateHome={() => setCurrentPanel('home')}
+        onNavigateHome={() => navigateToPanel('home')}
         activeTheme={theme}
         onChangeTheme={setTheme}
         isCloudSynced={isCloudSynced}
@@ -509,7 +660,7 @@ export default function App() {
       <main className="flex-1">
         {currentPanel === 'home' && (
           <HomePortal
-            onSelectClients={() => setCurrentPanel('clientes')}
+            onSelectClients={() => navigateToPanel('clientes')}
             onSelectBarbers={() => handleOpenPin('barberos')}
             onSelectAdmin={() => handleOpenPin('admin')}
           />
@@ -517,8 +668,8 @@ export default function App() {
 
         {currentPanel === 'clientes' && (
           <ClientPortal
-            services={services}
-            barbers={barbers}
+            services={services && services.length > 0 ? services : OFFICIAL_SERVICES}
+            barbers={barbers && barbers.length > 0 ? barbers : INITIAL_BARBERS}
             clients={clients}
             onRegisterVisit={handleRegisterVisit}
             onBookAppointment={handleBookAppointment}
@@ -545,7 +696,10 @@ export default function App() {
             promotions={promotions}
             liquidations={liquidations}
             contracts={contracts}
+            priceChanges={priceChanges}
             onAddSale={handleAddSale}
+            onUpdateSale={handleUpdateSale}
+            onDeleteSale={handleDeleteSale}
             onAddExpense={handleAddExpense}
             onSettleBarberCommissions={handleSettleBarberCommissions}
             onSaveLiquidation={handleSaveLiquidation}
@@ -555,7 +709,13 @@ export default function App() {
             onUpdateInventoryStock={handleUpdateInventoryStock}
             onAddInventoryItem={handleAddInventoryItem}
             onAddBarber={handleAddBarber}
+            onToggleBarberStatus={handleToggleBarberStatus}
             onDeleteBarber={handleDeleteBarber}
+            onUpdateService={handleUpdateService}
+            onAddService={handleAddService}
+            onDeleteService={handleDeleteService}
+            onResetServices={handleResetServices}
+            onRecordPriceChange={handleRecordPriceChange}
           />
         )}
       </main>

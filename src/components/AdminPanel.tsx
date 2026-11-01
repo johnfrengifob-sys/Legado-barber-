@@ -1,17 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ShoppingCart, DollarSign, TrendingUp, Users, Send, FileSpreadsheet, 
   Package, UserCheck, Plus, Trash2, CheckCircle2, AlertTriangle, 
   Percent, ArrowRight, Download, CreditCard, Banknote, Scissors, 
-  RefreshCw, Check, Sparkles, AlertCircle, FileText
+  RefreshCw, Check, Sparkles, AlertCircle, FileText, UserPlus, X, Phone,
+  QrCode, Copy, ExternalLink, Share2, Printer, Star, Edit3, Clock,
+  Sliders, RotateCcw, Search, Tag, Eye, Globe, Smartphone, CheckCheck,
+  Settings2, Info
 } from 'lucide-react';
 import { 
   Service, Barber, ClientRecord, Sale, Expense, InventoryItem, 
   PromotionBroadcast, ExpenseCategory, SaleItemExtra,
-  BarberLiquidation, BarberContract
+  BarberLiquidation, BarberContract, ServiceCategory, PriceChangeRecord
 } from '../types';
 import { BarberLiquidationManager } from './BarberLiquidationManager';
 import { BarberContractManager } from './BarberContractManager';
+
+// Official public Shared App URL for Legado Barber Club in Google AI Studio
+export const CLOUD_PUBLIC_URL = 'https://ais-pre-p3or5h4onxhacpe54j56ts-387828498531.us-west2.run.app';
+
+/**
+ * Resolves the public URL for customers to access the self-service portal
+ * without facing 401/403 developer authorization barriers on other devices.
+ */
+export function computeClientPortalUrl(override?: string, preset: 'cloud' | 'origin' | 'custom' = 'cloud'): string {
+  if (preset === 'custom' && override && override.trim()) {
+    let clean = override.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `https://${clean}`;
+    }
+    clean = clean.replace(/\/+$/, '');
+    return `${clean}/?panel=clientes`;
+  }
+
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin;
+
+    // If user explicitly forced origin
+    if (preset === 'origin') {
+      return `${origin}${window.location.pathname}?panel=clientes`;
+    }
+
+    // Default 'cloud' or auto-detection:
+    // In AI Studio developer sandbox, 'ais-dev-' requires internal developer IAM login.
+    // Changing 'ais-dev-' to 'ais-pre-' converts it to the Public Shared App URL
+    // accessible to ANY device (iPhone, Android, external laptops) without any login.
+    if (origin.includes('ais-dev-')) {
+      const publicOrigin = origin.replace('ais-dev-', 'ais-pre-');
+      return `${publicOrigin}/?panel=clientes`;
+    }
+
+    // If running on localhost or 127.0.0.1, external phones will fail to connect.
+    // Use the official public cloud preview link instead.
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return `${CLOUD_PUBLIC_URL}/?panel=clientes`;
+    }
+
+    // Otherwise (e.g. production domain or ais-pre-)
+    return `${origin}${window.location.pathname}?panel=clientes`;
+  }
+
+  return `${CLOUD_PUBLIC_URL}/?panel=clientes`;
+}
 
 interface AdminPanelProps {
   services: Service[];
@@ -23,7 +73,10 @@ interface AdminPanelProps {
   promotions: PromotionBroadcast[];
   liquidations?: BarberLiquidation[];
   contracts?: BarberContract[];
+  priceChanges?: PriceChangeRecord[];
   onAddSale: (sale: Sale) => void;
+  onUpdateSale?: (sale: Sale) => void;
+  onDeleteSale?: (saleId: string) => void;
   onAddExpense: (expense: Expense) => void;
   onSettleBarberCommissions: (barberId: string) => void;
   onSaveLiquidation?: (liq: BarberLiquidation) => void;
@@ -33,19 +86,26 @@ interface AdminPanelProps {
   onUpdateInventoryStock: (itemId: string, newStock: number) => void;
   onAddInventoryItem: (item: InventoryItem) => void;
   onAddBarber: (newBarber: Barber) => void;
+  onToggleBarberStatus?: (barberId: string, active: boolean) => void;
   onDeleteBarber: (barberId: string) => void;
+  onUpdateService?: (service: Service) => void;
+  onAddService?: (newService: Service) => void;
+  onDeleteService?: (serviceId: string) => void;
+  onResetServices?: () => void;
+  onRecordPriceChange?: (record: PriceChangeRecord) => void;
 }
 
 type AdminTab = 
   | 'pos' 
+  | 'servicios'
+  | 'personal'
   | 'gastos' 
   | 'liquidacion' 
   | 'contratos'
   | 'clientes' 
   | 'broadcast' 
   | 'historial' 
-  | 'inventario' 
-  | 'personal';
+  | 'inventario';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   services,
@@ -57,7 +117,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   promotions,
   liquidations = [],
   contracts = [],
+  priceChanges = [],
   onAddSale,
+  onUpdateSale = () => {},
+  onDeleteSale = () => {},
   onAddExpense,
   onSettleBarberCommissions,
   onSaveLiquidation = () => {},
@@ -67,7 +130,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateInventoryStock,
   onAddInventoryItem,
   onAddBarber,
-  onDeleteBarber
+  onToggleBarberStatus = () => {},
+  onDeleteBarber,
+  onUpdateService = () => {},
+  onAddService = () => {},
+  onDeleteService = () => {},
+  onResetServices = () => {},
+  onRecordPriceChange = () => {}
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('pos');
 
@@ -99,9 +168,386 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newItemPrice, setNewItemPrice] = useState<number>(0);
   const [newItemStock, setNewItemStock] = useState<number>(10);
 
-  // New Barber State
+  // New Barber State & Modal
+  const [addBarberModalOpen, setAddBarberModalOpen] = useState(false);
   const [newBarberName, setNewBarberName] = useState('');
+  const [newBarberCedula, setNewBarberCedula] = useState('');
+  const [newBarberPhone, setNewBarberPhone] = useState('');
   const [newBarberSpecialties, setNewBarberSpecialties] = useState('');
+  const [barberSuccessMsg, setBarberSuccessMsg] = useState('');
+
+  // Client QR Link & Modal State
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [qrDomainPreset, setQrDomainPreset] = useState<'cloud' | 'origin' | 'custom'>(() => {
+    return (localStorage.getItem('legado_qr_domain_preset') as any) || 'cloud';
+  });
+  const [customQrDomain, setCustomQrDomain] = useState<string>(() => {
+    return localStorage.getItem('legado_custom_qr_domain') || '';
+  });
+  const [showQrSettings, setShowQrSettings] = useState(false);
+  const [domainFeedbackMsg, setDomainFeedbackMsg] = useState('');
+
+  // Services & Prices State
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+  const [serviceCategoryFilter, setServiceCategoryFilter] = useState<'todos' | ServiceCategory>('todos');
+  const [serviceEdits, setServiceEdits] = useState<Record<string, {
+    price: number;
+    durationMinutes: number;
+    name: string;
+    description: string;
+    category: ServiceCategory;
+  }>>({});
+  const [serviceSuccessMsg, setServiceSuccessMsg] = useState('');
+  const [addServiceModalOpen, setAddServiceModalOpen] = useState(false);
+  const [bulkAdjustModalOpen, setBulkAdjustModalOpen] = useState(false);
+
+  // New Service Form State
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServiceCategory, setNewServiceCategory] = useState<ServiceCategory>('esenciales');
+  const [newServicePrice, setNewServicePrice] = useState<number>(30000);
+  const [newServiceDuration, setNewServiceDuration] = useState<number>(35);
+  const [newServiceDescription, setNewServiceDescription] = useState('');
+
+  // Bulk Price Adjust Form State
+  const [bulkAdjustType, setBulkAdjustType] = useState<'fixed' | 'percent'>('fixed');
+  const [bulkAdjustAmount, setBulkAdjustAmount] = useState<number>(5000);
+  const [bulkAdjustDirection, setBulkAdjustDirection] = useState<'increase' | 'decrease'>('increase');
+  const [bulkTargetCategory, setBulkTargetCategory] = useState<'todos' | ServiceCategory>('todos');
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
+  const [priceHistorySearch, setPriceHistorySearch] = useState<string>('');
+
+  // Sales (POS) Income Editing State (Valor, Fecha y Hora)
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editSaleTotal, setEditSaleTotal] = useState<number>(0);
+  const [editSaleDate, setEditSaleDate] = useState<string>(''); // YYYY-MM-DD
+  const [editSaleTime, setEditSaleTime] = useState<string>(''); // HH:mm
+  const [editSaleBarberId, setEditSaleBarberId] = useState<string>('');
+  const [editSalePaymentMethod, setEditSalePaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [editSaleClientName, setEditSaleClientName] = useState<string>('');
+  const [editSaleSuccessMsg, setEditSaleSuccessMsg] = useState<string>('');
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+
+  // Barber Deactivation & Management State (Dar de baja / Reactivar / Eliminar)
+  const [barberStatusFilter, setBarberStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [barberToDeactivate, setBarberToDeactivate] = useState<Barber | null>(null);
+  const [barberToDelete, setBarberToDelete] = useState<Barber | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
+  const [barberFeedbackMsg, setBarberFeedbackMsg] = useState<string>('');
+
+  // Helper to get active editable values for a service (fallback to service's current values)
+  const getServiceEditValues = (service: Service) => {
+    return serviceEdits[service.id] || {
+      price: service.price,
+      durationMinutes: service.durationMinutes,
+      name: service.name,
+      description: service.description,
+      category: service.category
+    };
+  };
+
+  const handleUpdateServiceField = (
+    service: Service, 
+    field: 'price' | 'durationMinutes' | 'name' | 'description' | 'category', 
+    value: any
+  ) => {
+    const current = getServiceEditValues(service);
+    setServiceEdits(prev => ({
+      ...prev,
+      [service.id]: {
+        ...current,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleQuickDelta = (service: Service, delta: number) => {
+    const current = getServiceEditValues(service);
+    const newPrice = Math.max(0, current.price + delta);
+    handleUpdateServiceField(service, 'price', newPrice);
+  };
+
+  const handleSaveSingleService = (service: Service) => {
+    const edits = getServiceEditValues(service);
+    if (edits.price < 0 || !edits.name.trim()) return;
+
+    const oldPrice = service.price;
+    const newPrice = Number(edits.price);
+
+    const updated: Service = {
+      id: service.id,
+      name: edits.name.trim(),
+      category: edits.category,
+      price: newPrice,
+      durationMinutes: Number(edits.durationMinutes) || 30,
+      description: edits.description.trim()
+    };
+
+    onUpdateService(updated);
+
+    // Save Price Change Audit Log if price actually changed
+    if (oldPrice !== newPrice) {
+      const now = new Date();
+      const changeRecord: PriceChangeRecord = {
+        id: `pc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        serviceId: service.id,
+        serviceName: updated.name,
+        oldPrice,
+        newPrice,
+        difference: newPrice - oldPrice,
+        date: now.toISOString().split('T')[0],
+        time: now.toTimeString().slice(0, 8),
+        modifiedBy: 'Administración Legado',
+        reason: 'Modificación manual directa de tarifa'
+      };
+      onRecordPriceChange(changeRecord);
+    }
+
+    setServiceSuccessMsg(`¡Tarifa de "${updated.name}" actualizada a $${updated.price.toLocaleString('es-CO')} COP y registrada en auditoría!`);
+    setTimeout(() => setServiceSuccessMsg(''), 5000);
+  };
+
+  const handleCreateService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newServiceName.trim() || newServicePrice <= 0) return;
+
+    const newService: Service = {
+      id: `srv-${Date.now()}`,
+      name: newServiceName.trim(),
+      category: newServiceCategory,
+      price: Number(newServicePrice),
+      durationMinutes: Number(newServiceDuration) || 30,
+      description: newServiceDescription.trim() || 'Servicio personalizado de barbería en Legado Barber Club.'
+    };
+
+    onAddService(newService);
+
+    // Record initial price in audit log
+    const now = new Date();
+    const changeRecord: PriceChangeRecord = {
+      id: `pc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      serviceId: newService.id,
+      serviceName: newService.name,
+      oldPrice: 0,
+      newPrice: newService.price,
+      difference: newService.price,
+      date: now.toISOString().split('T')[0],
+      time: now.toTimeString().slice(0, 8),
+      modifiedBy: 'Administración Legado',
+      reason: 'Creación de nuevo servicio en catálogo'
+    };
+    onRecordPriceChange(changeRecord);
+
+    setNewServiceName('');
+    setNewServicePrice(30000);
+    setNewServiceDuration(35);
+    setNewServiceDescription('');
+    setAddServiceModalOpen(false);
+    setServiceSuccessMsg(`¡Servicio "${newService.name}" creado con éxito a $${newService.price.toLocaleString('es-CO')} COP!`);
+    setTimeout(() => setServiceSuccessMsg(''), 4500);
+  };
+
+  const handleApplyBulkAdjust = () => {
+    const targetServices = services.filter(s => 
+      bulkTargetCategory === 'todos' ? true : s.category === bulkTargetCategory
+    );
+
+    if (targetServices.length === 0) return;
+
+    const now = new Date();
+    let recordsCreated = 0;
+
+    targetServices.forEach(s => {
+      let newPrice = s.price;
+      if (bulkAdjustType === 'fixed') {
+        newPrice = bulkAdjustDirection === 'increase' 
+          ? s.price + bulkAdjustAmount 
+          : Math.max(0, s.price - bulkAdjustAmount);
+      } else {
+        const factor = bulkAdjustDirection === 'increase' ? (1 + bulkAdjustAmount / 100) : (1 - bulkAdjustAmount / 100);
+        newPrice = Math.round((s.price * factor) / 1000) * 1000;
+      }
+
+      const finalPrice = Math.max(1000, newPrice);
+
+      const updated: Service = {
+        ...s,
+        price: finalPrice
+      };
+
+      onUpdateService(updated);
+
+      if (s.price !== finalPrice) {
+        recordsCreated++;
+        const changeRecord: PriceChangeRecord = {
+          id: `pc-${Date.now()}-${s.id}-${Math.random().toString(36).substring(2, 5)}`,
+          serviceId: s.id,
+          serviceName: updated.name,
+          oldPrice: s.price,
+          newPrice: finalPrice,
+          difference: finalPrice - s.price,
+          date: now.toISOString().split('T')[0],
+          time: now.toTimeString().slice(0, 8),
+          modifiedBy: 'Administración Legado',
+          reason: `Ajuste masivo (${bulkAdjustDirection === 'increase' ? '+' : '-'}${bulkAdjustAmount}${bulkAdjustType === 'percent' ? '%' : ' COP'})`
+        };
+        onRecordPriceChange(changeRecord);
+      }
+
+      setServiceEdits(prev => ({
+        ...prev,
+        [s.id]: {
+          ...getServiceEditValues(s),
+          price: updated.price
+        }
+      }));
+    });
+
+    setBulkAdjustModalOpen(false);
+    setServiceSuccessMsg(`¡Ajuste masivo aplicado exitosamente a ${targetServices.length} servicios! Se guardaron ${recordsCreated} registros de auditoría.`);
+    setTimeout(() => setServiceSuccessMsg(''), 5500);
+  };
+
+  const handleConfirmResetPrices = () => {
+    onResetServices();
+    setServiceEdits({});
+    setShowResetConfirmModal(false);
+    setServiceSuccessMsg('¡Tarifas oficiales de Legado Barber Club restablecidas exitosamente!');
+    setTimeout(() => setServiceSuccessMsg(''), 4500);
+  };
+
+  // Sale Income Editing Handlers
+  const handleOpenEditSale = (sale: Sale) => {
+    setEditingSale(sale);
+    setEditSaleTotal(sale.total);
+    setEditSaleBarberId(sale.barberId);
+    setEditSalePaymentMethod(sale.paymentMethod);
+    setEditSaleClientName(sale.clientName || 'Cliente General');
+
+    // Parse date and time from sale.date (e.g. "2026-11-01 14:30" or "2026-11-01")
+    if (sale.date && sale.date.includes(' ')) {
+      const parts = sale.date.split(' ');
+      setEditSaleDate(parts[0]);
+      setEditSaleTime(parts[1]?.slice(0, 5) || '12:00');
+    } else if (sale.date && sale.date.includes('T')) {
+      const parts = sale.date.split('T');
+      setEditSaleDate(parts[0]);
+      setEditSaleTime(parts[1]?.slice(0, 5) || '12:00');
+    } else {
+      setEditSaleDate(sale.date || new Date().toISOString().split('T')[0]);
+      setEditSaleTime(new Date().toTimeString().slice(0, 5));
+    }
+  };
+
+  const handleSaveEditedSale = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSale || editSaleTotal <= 0 || !editSaleDate) return;
+
+    const selectedBarber = barbers.find(b => b.id === editSaleBarberId) || {
+      id: editingSale.barberId,
+      name: editingSale.barberName
+    };
+
+    const finalDateTime = `${editSaleDate} ${editSaleTime || '12:00'}`.trim();
+    const newTotal = Number(editSaleTotal);
+    const newCommission = Math.round(newTotal * 0.5);
+    const newShopGain = newTotal - newCommission;
+
+    const updatedSale: Sale = {
+      ...editingSale,
+      total: newTotal,
+      subtotal: newTotal,
+      date: finalDateTime,
+      barberId: selectedBarber.id,
+      barberName: selectedBarber.name,
+      paymentMethod: editSalePaymentMethod,
+      clientName: editSaleClientName.trim() || 'Cliente General',
+      barberCommission: newCommission,
+      shopGain: newShopGain
+    };
+
+    onUpdateSale(updatedSale);
+    setEditingSale(null);
+    setEditSaleSuccessMsg(`¡Ingreso de venta (${updatedSale.invoiceNumber}) actualizado a $${updatedSale.total.toLocaleString('es-CO')} COP (${updatedSale.date}) con éxito!`);
+    setTimeout(() => setEditSaleSuccessMsg(''), 5000);
+  };
+
+  const handleConfirmDeleteSale = () => {
+    if (!saleToDelete) return;
+    onDeleteSale(saleToDelete.id);
+    setSaleToDelete(null);
+    setEditSaleSuccessMsg(`¡Registro de venta ${saleToDelete.invoiceNumber} eliminado del sistema!`);
+    setTimeout(() => setEditSaleSuccessMsg(''), 4500);
+  };
+
+  // Barber Status (Dar de baja / Reactivar / Eliminar) Handlers
+  const handleConfirmDeactivateBarber = () => {
+    if (!barberToDeactivate) return;
+    onToggleBarberStatus(barberToDeactivate.id, false);
+    setBarberFeedbackMsg(`¡Barbero "${barberToDeactivate.name}" dado de baja (marcado como inactivo)! Sus ventas históricas y liquidaciones quedan resguardadas.`);
+    setBarberToDeactivate(null);
+    setTimeout(() => setBarberFeedbackMsg(''), 5500);
+  };
+
+  const handleConfirmReactivateBarber = (barber: Barber) => {
+    onToggleBarberStatus(barber.id, true);
+    setBarberFeedbackMsg(`¡Barbero "${barber.name}" reactivado con éxito y disponible nuevamente para atención y POS!`);
+    setTimeout(() => setBarberFeedbackMsg(''), 5500);
+  };
+
+  const handleConfirmDeleteBarber = () => {
+    if (!barberToDelete) return;
+    onDeleteBarber(barberToDelete.id);
+    setBarberFeedbackMsg(`¡Barbero "${barberToDelete.name}" eliminado definitivamente del equipo!`);
+    setBarberToDelete(null);
+    setTimeout(() => setBarberFeedbackMsg(''), 5500);
+  };
+
+  const handleConfirmDeleteService = () => {
+    if (!serviceToDelete) return;
+    onDeleteService(serviceToDelete.id);
+    setServiceSuccessMsg(`Servicio "${serviceToDelete.name}" eliminado del catálogo.`);
+    setServiceToDelete(null);
+    setTimeout(() => setServiceSuccessMsg(''), 4500);
+  };
+
+  // Computed public client link for QR attendance and ratings (cloud public URL without auth barriers)
+  const clientPortalUrl = useMemo(() => {
+    return computeClientPortalUrl(customQrDomain, qrDomainPreset);
+  }, [customQrDomain, qrDomainPreset]);
+
+  const handleCopyClientLink = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(clientPortalUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 3000);
+    }
+  };
+
+  const handleOpenClientLink = () => {
+    if (typeof window !== 'undefined') {
+      window.open(clientPortalUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = `¡Hola! Bienvenido a Legado Barber Club. Registra tu asistencia en recepción, califica a tu barbero y acumula visitas para cortes gratis aquí: ${clientPortalUrl}`;
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    if (typeof window !== 'undefined') {
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleSaveQrPreset = (newPreset: 'cloud' | 'origin' | 'custom', customVal?: string) => {
+    setQrDomainPreset(newPreset);
+    localStorage.setItem('legado_qr_domain_preset', newPreset);
+    if (customVal !== undefined) {
+      setCustomQrDomain(customVal);
+      localStorage.setItem('legado_custom_qr_domain', customVal);
+    }
+    setDomainFeedbackMsg('¡Configuración de enlace público guardada!');
+    setTimeout(() => setDomainFeedbackMsg(''), 3000);
+  };
 
   // POS Calculations
   const servicesSubtotal = posSelectedServices.reduce((sum, s) => sum + s.price, 0);
@@ -256,12 +702,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       active: true,
       specialties: newBarberSpecialties.trim() 
         ? newBarberSpecialties.split(',').map(s => s.trim()) 
-        : ['Cortes Modernos', 'Degradados']
+        : ['Cortes Clásicos', 'Degradados / Fade', 'Perfilado de Barba'],
+      cedula: newBarberCedula.trim() || undefined,
+      phone: newBarberPhone.trim() || undefined
     };
 
     onAddBarber(newBarber);
+    setPosBarberId(newBarber.id);
     setNewBarberName('');
     setNewBarberSpecialties('');
+    setNewBarberCedula('');
+    setNewBarberPhone('');
+    setAddBarberModalOpen(false);
+    setBarberSuccessMsg(`¡Barbero "${newBarber.name}" ingresado con éxito y listo para atender!`);
+    setTimeout(() => setBarberSuccessMsg(''), 5000);
   };
 
   // EXCEL / CSV Export function (delimited by semicolon ;)
@@ -324,6 +778,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const tabs: { id: AdminTab; label: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'pos', label: 'Nueva Venta (POS)', icon: ShoppingCart },
+    { id: 'servicios', label: 'Tarifas & Servicios', icon: Scissors },
+    { id: 'personal', label: 'Barberos / Personal', icon: UserCheck },
     { id: 'gastos', label: 'Gastos y Egresos', icon: DollarSign },
     { id: 'liquidacion', label: 'Liquidar Barbero (Firmas & PDF)', icon: TrendingUp },
     { id: 'contratos', label: 'Contratos & Normativa (20 Días)', icon: FileText },
@@ -331,7 +787,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     { id: 'broadcast', label: 'Promociones Masivas', icon: Send },
     { id: 'historial', label: 'Historial & Excel', icon: FileSpreadsheet },
     { id: 'inventario', label: 'Inventario', icon: Package },
-    { id: 'personal', label: 'Personal', icon: UserCheck },
   ];
 
   return (
@@ -348,42 +803,125 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 Panel Administrador · Legado Barber Club
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Control financiero, caja neta, comisiones 50/50 y base de datos
+                Control financiero, tarifas de servicios, comisiones 50/50 y personal
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap lg:flex-nowrap items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab('servicios')}
+              className={`px-3 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98] min-h-[40px] ${
+                activeTab === 'servicios'
+                  ? 'bg-[#c5a059] text-black shadow-md font-extrabold'
+                  : 'bg-slate-200/80 dark:bg-[#02253f] hover:bg-[#c5a059]/20 text-slate-800 dark:text-slate-200 border border-slate-300/80 dark:border-white/15'
+              }`}
+              title="Modificar valores y tarifas de los servicios"
+            >
+              <Scissors className="w-3.5 h-3.5 text-[#c5a059] shrink-0" />
+              <span className="truncate">Modificar Tarifas</span>
+            </button>
+
+            <button
+              onClick={() => setQrModalOpen(true)}
+              className="px-3 py-2.5 rounded-xl bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#c5a059] border border-[#c5a059]/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98] min-h-[40px]"
+              title="Ver y compartir enlace de asistencia QR y calificación"
+            >
+              <QrCode className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Link QR Clientes</span>
+            </button>
+
+            <button
+              onClick={() => setAddBarberModalOpen(true)}
+              className="px-3 py-2.5 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-[1.02] active:scale-[0.98] min-h-[40px]"
+            >
+              <UserPlus className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">+ Ingresar Barbero</span>
+            </button>
+
             <button
               onClick={handleExportCsv}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              className="px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer min-h-[40px]"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Exportar Excel (.csv)</span>
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Exportar Excel (.csv)</span>
             </button>
           </div>
         </div>
 
-        {/* Scrollable Navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-2.5 px-3.5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-[#c5a059] text-black shadow-md'
-                    : 'bg-slate-100/90 dark:bg-[#02253f] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white border border-slate-300/80 dark:border-white/20'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+        {/* Success toast if service updated */}
+        {serviceSuccessMsg && (
+          <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>{serviceSuccessMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setServiceSuccessMsg('')}
+              className="text-xs text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
+        {/* Success toast if barber status changed or removed */}
+        {barberFeedbackMsg && (
+          <div className="p-3.5 rounded-2xl bg-[#c5a059]/20 border border-[#c5a059]/40 text-slate-900 dark:text-white text-xs font-bold flex items-center justify-between gap-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#c5a059] shrink-0" />
+              <span>{barberFeedbackMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBarberFeedbackMsg('')}
+              className="text-xs text-[#c5a059] hover:underline cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
+        {/* Success toast if sale income updated */}
+        {editSaleSuccessMsg && (
+          <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between gap-2 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>{editSaleSuccessMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditSaleSuccessMsg('')}
+              className="text-xs text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable Navigation Tabs with responsive padding and snapping */}
+        <div className="relative pt-1">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 text-xs font-bold scrollbar-none sm:scrollbar-thin scrollbar-thumb-[#c5a059]/40 snap-x">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`py-2.5 px-3.5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer snap-start shrink-0 min-h-[42px] ${
+                    isActive
+                      ? 'bg-[#c5a059] text-black shadow-md font-extrabold'
+                      : 'bg-slate-100/90 dark:bg-[#02253f] text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white border border-slate-300/80 dark:border-white/20'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -420,11 +958,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="space-y-6">
               {/* Barber selector */}
               <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider block mb-2">
-                  1. Barbero que atiende:
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {barbers.map((b) => {
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider block">
+                    1. Barbero que atiende:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setAddBarberModalOpen(true)}
+                    className="text-xs font-bold text-[#c5a059] hover:text-[#d4af37] flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Ingresar nuevo barbero</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {(barbers.filter(b => b.active !== false).length > 0 
+                    ? barbers.filter(b => b.active !== false) 
+                    : barbers
+                  ).map((b) => {
                     const isSelected = b.id === posBarberId;
                     return (
                       <button
@@ -442,6 +993,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    onClick={() => setAddBarberModalOpen(true)}
+                    className="py-3 px-4 rounded-2xl border border-dashed border-[#c5a059]/60 hover:border-[#c5a059] hover:bg-[#c5a059]/10 text-[#c5a059] text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-xs font-bold">+ Ingresar</span>
+                  </button>
                 </div>
               </div>
 
@@ -461,13 +1020,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               {/* Interactive Services Cards (Esenciales, Premium, Colorimetría) */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                     2. Selección Múltiple de Servicios:
                   </label>
-                  <span className="text-xs text-[#c5a059] font-bold">
-                    {posSelectedServices.length} seleccionados
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('servicios')}
+                      className="text-xs text-[#c5a059] hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                      title="Ir al gestor de tarifas para cambiar los precios oficiales"
+                    >
+                      <Scissors className="w-3.5 h-3.5" />
+                      <span>Modificar Tarifas</span>
+                    </button>
+                    <span className="text-xs text-slate-500 font-bold">
+                      · {posSelectedServices.length} seleccionados
+                    </span>
+                  </div>
                 </div>
 
                 {/* Esenciales */}
@@ -777,7 +1347,453 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 2. GASTOS Y EGRESOS */}
+      {/* 2. GESTOR DE TARIFAS Y SERVICIOS                               */}
+      {/* ============================================================== */}
+      {activeTab === 'servicios' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Main Controls Card */}
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-white/20 dark:border-white/10 shadow-2xl space-y-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-white/10 pb-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                    <Scissors className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-display font-black text-xl text-slate-900 dark:text-white">
+                    Gestor de Tarifas y Catálogo de Servicios
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl">
+                  Modifica los precios al público, duración en minutos y nombres de cada servicio. Las modificaciones se sincronizan automáticamente en el terminal de cobro (POS), el portal de clientes y el sistema de reservas.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setBulkAdjustModalOpen(true)}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-200/90 dark:bg-[#02253f] hover:bg-slate-300 dark:hover:bg-[#033458] text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-white/15 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  title="Ajustar todas las tarifas o una categoría por porcentaje o valor fijo"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Ajuste Masivo (+ / -)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirmModal(true)}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-200/90 dark:bg-[#02253f] hover:bg-rose-500/20 hover:text-rose-600 dark:hover:text-rose-400 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-white/15 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  title="Restablecer tarifas a valores oficiales originales"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restablecer Originales</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAddServiceModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-black text-xs flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>+ Crear Nuevo Servicio</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15">
+                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">Total Servicios</span>
+                <span className="text-xl font-display font-black text-slate-900 dark:text-white">{services.length}</span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/25">
+                <span className="text-[10px] uppercase font-bold text-cyan-700 dark:text-cyan-300 block">Esenciales</span>
+                <span className="text-xl font-display font-black text-cyan-600 dark:text-cyan-400">
+                  {services.filter(s => s.category === 'esenciales').length}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-[#c5a059]/15 border border-[#c5a059]/30">
+                <span className="text-[10px] uppercase font-bold text-[#c5a059] block">Experiencias Premium</span>
+                <span className="text-xl font-display font-black text-[#c5a059]">
+                  {services.filter(s => s.category === 'premium').length}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/25">
+                <span className="text-[10px] uppercase font-bold text-purple-700 dark:text-purple-300 block">Colorimetría</span>
+                <span className="text-xl font-display font-black text-purple-600 dark:text-purple-400">
+                  {services.filter(s => s.category === 'colorimetria').length}
+                </span>
+              </div>
+            </div>
+
+            {/* Search & Category Filter Controls */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+              {/* Category Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold">
+                {[
+                  { id: 'todos', label: 'Todos', count: services.length },
+                  { id: 'esenciales', label: 'Esenciales', count: services.filter(s => s.category === 'esenciales').length },
+                  { id: 'premium', label: 'Premium', count: services.filter(s => s.category === 'premium').length },
+                  { id: 'colorimetria', label: 'Colorimetría', count: services.filter(s => s.category === 'colorimetria').length },
+                ].map((cat) => {
+                  const isSelected = serviceCategoryFilter === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setServiceCategoryFilter(cat.id as any)}
+                      className={`px-3 py-1.5 rounded-xl border text-xs transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-[#c5a059] text-black border-[#c5a059] font-bold shadow-sm'
+                          : 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/15 text-slate-700 dark:text-slate-300 hover:border-[#c5a059]/40'
+                      }`}
+                    >
+                      <span>{cat.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-black/20 text-black' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300'}`}>
+                        {cat.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search input */}
+              <div className="relative sm:w-72">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar servicio por nombre..."
+                  value={serviceSearchQuery}
+                  onChange={(e) => setServiceSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:border-[#c5a059]"
+                />
+                {serviceSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setServiceSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Service Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {services
+              .filter(s => {
+                const matchesCategory = serviceCategoryFilter === 'todos' || s.category === serviceCategoryFilter;
+                const matchesSearch = !serviceSearchQuery.trim() || 
+                  s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+                  s.description.toLowerCase().includes(serviceSearchQuery.toLowerCase());
+                return matchesCategory && matchesSearch;
+              })
+              .map((service) => {
+                const edits = getServiceEditValues(service);
+                const hasUnsavedChanges = 
+                  edits.price !== service.price ||
+                  edits.durationMinutes !== service.durationMinutes ||
+                  edits.name !== service.name ||
+                  edits.description !== service.description ||
+                  edits.category !== service.category;
+
+                const categoryTheme = service.category === 'premium'
+                  ? { badge: 'bg-[#c5a059]/20 text-[#c5a059] border-[#c5a059]/40', border: 'border-[#c5a059]/30 hover:border-[#c5a059]' }
+                  : service.category === 'colorimetria'
+                  ? { badge: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/40', border: 'border-purple-500/30 hover:border-purple-400' }
+                  : { badge: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/40', border: 'border-cyan-500/30 hover:border-cyan-400' };
+
+                return (
+                  <div
+                    key={service.id}
+                    className={`liquid-glass-card rounded-3xl p-5 border shadow-xl flex flex-col justify-between transition-all duration-200 ${categoryTheme.border} ${
+                      hasUnsavedChanges ? 'ring-2 ring-[#c5a059]' : ''
+                    }`}
+                  >
+                    <div className="space-y-4">
+                      {/* Top Header of Card */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[10px] uppercase font-extrabold px-2.5 py-1 rounded-full border ${categoryTheme.badge}`}>
+                          {edits.category === 'premium' ? 'Premium' : edits.category === 'colorimetria' ? 'Colorimetría' : 'Esencial'}
+                        </span>
+                        
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-[#c5a059]" />
+                          <span>{edits.durationMinutes} min</span>
+                        </div>
+                      </div>
+
+                      {/* Service Name Input */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          Nombre del Servicio
+                        </label>
+                        <input
+                          type="text"
+                          value={edits.name}
+                          onChange={(e) => handleUpdateServiceField(service, 'name', e.target.value)}
+                          className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 px-3 py-2 font-display font-bold text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#c5a059]"
+                        />
+                      </div>
+
+                      {/* Price Editing Zone */}
+                      <div className="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-black text-slate-800 dark:text-slate-200">
+                            Valor / Tarifa (COP) *
+                          </label>
+                          <span className="font-display font-black text-base text-[#c5a059]">
+                            ${Number(edits.price).toLocaleString('es-CO')}
+                          </span>
+                        </div>
+
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm">$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1000"
+                            value={edits.price}
+                            onChange={(e) => handleUpdateServiceField(service, 'price', Number(e.target.value) || 0)}
+                            className="w-full pl-7 pr-3 py-2 rounded-xl bg-white dark:bg-[#011d32] border border-slate-300 dark:border-white/20 text-slate-900 dark:text-white font-mono font-bold text-sm focus:outline-none focus:border-[#c5a059]"
+                          />
+                        </div>
+
+                        {/* Quick +/- Delta Buttons */}
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickDelta(service, -5000)}
+                            className="flex-1 py-1 px-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[10px] font-bold transition-colors cursor-pointer"
+                            title="Descontar $5.000 COP"
+                          >
+                            - $5.000
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickDelta(service, 5000)}
+                            className="flex-1 py-1 px-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-bold transition-colors cursor-pointer"
+                            title="Aumentar $5.000 COP"
+                          >
+                            + $5.000
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickDelta(service, 10000)}
+                            className="flex-1 py-1 px-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold transition-colors cursor-pointer"
+                            title="Aumentar $10.000 COP"
+                          >
+                            + $10.000
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Duration & Category Row */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                            Duración (Min)
+                          </label>
+                          <input
+                            type="number"
+                            min="5"
+                            step="5"
+                            value={edits.durationMinutes}
+                            onChange={(e) => handleUpdateServiceField(service, 'durationMinutes', Number(e.target.value) || 30)}
+                            className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 px-3 py-1.5 font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#c5a059]"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                            Categoría
+                          </label>
+                          <select
+                            value={edits.category}
+                            onChange={(e) => handleUpdateServiceField(service, 'category', e.target.value as ServiceCategory)}
+                            className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 px-2 py-1.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                          >
+                            <option value="esenciales">Esenciales</option>
+                            <option value="premium">Premium</option>
+                            <option value="colorimetria">Colorimetría</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Description Textarea */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                          Descripción Comercial
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={edits.description}
+                          onChange={(e) => handleUpdateServiceField(service, 'description', e.target.value)}
+                          placeholder="Detalles de lo que incluye el servicio..."
+                          className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-[#c5a059] resize-none"
+                        />
+                      </div>
+
+                      {/* 50/50 Live Commission Calculation */}
+                      <div className="p-2.5 rounded-xl bg-slate-200/60 dark:bg-[#02253f]/80 border border-slate-300/60 dark:border-white/10 text-[11px] space-y-1">
+                        <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                          <span>Comisión Barbero (50%):</span>
+                          <span className="font-bold text-amber-600 dark:text-amber-400">
+                            ${Math.round(edits.price * 0.5).toLocaleString('es-CO')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                          <span>Ganancia Sede Legado (50%):</span>
+                          <span className="font-bold text-blue-600 dark:text-blue-400">
+                            ${Math.round(edits.price * 0.5).toLocaleString('es-CO')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Footer */}
+                    <div className="pt-4 mt-4 border-t border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setServiceToDelete(service)}
+                        className="text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-2.5 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors cursor-pointer min-h-[40px] flex items-center justify-center"
+                        title="Eliminar este servicio del catálogo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSaveSingleService(service)}
+                        className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
+                          hasUnsavedChanges
+                            ? 'bg-[#c5a059] hover:bg-[#d4af37] text-black shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98]'
+                            : 'bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600 hover:text-white'
+                        }`}
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>{hasUnsavedChanges ? 'Guardar Cambios' : 'Tarifa Guardada'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          {/* ============================================================== */}
+          {/* REGISTRO Y AUDITORÍA DE CAMBIOS DE PRECIOS                     */}
+          {/* ============================================================== */}
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-2xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                      Registro de Auditoría de Cambios de Precio
+                    </h4>
+                    <span className="text-xs bg-[#c5a059]/20 text-[#c5a059] px-2.5 py-0.5 rounded-full font-bold">
+                      {priceChanges.length} cambios guardados
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Historial oficial e inmutable de variaciones de tarifas con fecha, hora, tarifa previa, nueva tarifa y diferencia
+                  </p>
+                </div>
+              </div>
+
+              {priceChanges.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por servicio o fecha..."
+                      value={priceHistorySearch}
+                      onChange={(e) => setPriceHistorySearch(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#c5a059]"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {priceChanges.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl bg-slate-100/60 dark:bg-[#02253f]/40 border border-dashed border-slate-300/80 dark:border-white/10 text-slate-500 dark:text-slate-400 text-xs space-y-1">
+                <Info className="w-6 h-6 mx-auto mb-2 text-[#c5a059]" />
+                <p className="font-semibold text-slate-700 dark:text-slate-200">Aún no se han guardado modificaciones de precios en esta sesión.</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Cada vez que modifiques una tarifa individual o apliques un ajuste masivo, el sistema registrará automáticamente el cambio con fecha y hora exacta.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+                <table className="w-full text-left text-xs min-w-[720px]">
+                  <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
+                    <tr>
+                      <th className="py-2.5 px-3">Fecha y Hora</th>
+                      <th className="py-2.5 px-3">Servicio</th>
+                      <th className="py-2.5 px-3 text-right">Tarifa Anterior</th>
+                      <th className="py-2.5 px-3 text-right">Nueva Tarifa</th>
+                      <th className="py-2.5 px-3 text-center">Variación</th>
+                      <th className="py-2.5 px-3">Motivo / Modificado por</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                    {priceChanges
+                      .filter(pc => !priceHistorySearch.trim() || pc.serviceName.toLowerCase().includes(priceHistorySearch.toLowerCase()) || pc.date.includes(priceHistorySearch))
+                      .map((pc) => {
+                        const isIncrease = pc.difference > 0;
+                        const isDecrease = pc.difference < 0;
+                        return (
+                          <tr key={pc.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                            <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-mono">
+                              {pc.date} · {pc.time}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                              {pc.serviceName}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              ${pc.oldPrice.toLocaleString('es-CO')}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-bold text-[#c5a059] whitespace-nowrap">
+                              ${pc.newPrice.toLocaleString('es-CO')}
+                            </td>
+                            <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                              {isIncrease && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                  +${pc.difference.toLocaleString('es-CO')}
+                                </span>
+                              )}
+                              {isDecrease && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                  -${Math.abs(pc.difference).toLocaleString('es-CO')}
+                                </span>
+                              )}
+                              {!isIncrease && !isDecrease && (
+                                <span className="text-slate-400 text-[10px] font-bold">Sin variación</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
+                              <span className="font-semibold">{pc.reason || 'Modificación manual'}</span>
+                              <span className="text-[10px] text-slate-400 block">Por {pc.modifiedBy}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 3. GASTOS Y EGRESOS */}
       {/* ============================================================== */}
       {activeTab === 'gastos' && (
         <div className="space-y-6">
@@ -842,8 +1858,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <h4 className="font-display font-bold text-base text-slate-900 dark:text-white mb-4">
               Historial de Egresos Registrados
             </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+              <table className="w-full text-left text-xs min-w-[580px]">
                 <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                   <tr>
                     <th className="py-2.5 px-3">Fecha</th>
@@ -908,23 +1924,142 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 4. BASE DE DATOS DE CLIENTES & QR */}
       {/* ============================================================== */}
       {activeTab === 'clientes' && (
-        <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
-                Base de Datos de Clientes & Validación QR
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Historial de visitas, calificaciones de 10 estrellas y recompensas de fidelización
-              </p>
+        <div className="space-y-6">
+          {/* Card Destacada: Enlace Oficial de Asistencia QR & Calificación 10★ */}
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-2xl space-y-5 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#d4af37] to-[#9b7b38] text-black flex items-center justify-center font-bold shadow-lg shadow-[#c5a059]/25 shrink-0">
+                  <QrCode className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                      Enlace de Asistencia QR & Calificación 10★
+                    </h3>
+                    <span className="hidden sm:inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+                      Público para Clientes
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Comparte este enlace por WhatsApp o genera el código QR para colocarlo en recepción o estaciones de corte
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQrModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>Ver / Imprimir Código QR</span>
+                </button>
+              </div>
             </div>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#c5a059]/15 border border-[#c5a059]/30 text-[#c5a059]">
-              {clients.length} clientes registrados
-            </span>
+
+            {/* Input con la URL directa y botones de acción rápida */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <span>Enlace Web Directo del Portal de Clientes:</span>
+                <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                  (Ábrelo en cualquier móvil o tablet para registrar visitas)
+                </span>
+              </label>
+
+              <div className="flex flex-col sm:flex-row items-stretch gap-2.5 bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 p-2.5 rounded-2xl">
+                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#031d33] rounded-xl border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-800 dark:text-slate-200 overflow-x-auto select-all">
+                  <span className="text-[#c5a059] font-bold select-none">URL:</span>
+                  <span className="font-semibold">{clientPortalUrl}</span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCopyClientLink}
+                    className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] text-black font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                  >
+                    {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedLink ? '¡Enlace Copiado!' : 'Copiar Enlace'}</span>
+                  </button>
+
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent('¡Hola! Registra tu asistencia y califica tu experiencia en Legado Barber Club para acumular visitas y ganar cortes gratis aquí: ' + clientPortalUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    title="Enviar enlace por WhatsApp"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">WhatsApp</span>
+                  </a>
+
+                  <a
+                    href={clientPortalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center transition-all cursor-pointer"
+                    title="Probar portal de cliente en nueva pestaña"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* 3 Quick highlights */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-[#032540] border border-slate-200 dark:border-white/10 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center shrink-0">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Escaneo Instantáneo</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Sin descargar apps ni registros engorrosos</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-[#032540] border border-slate-200 dark:border-white/10 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Calificación 10 Estrellas</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Evaluación transparente del barbero</div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-[#032540] border border-slate-200 dark:border-white/10 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Fidelización Automática</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">Desbloquea cortes y limpiezas gratis</div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          {/* Tabla de Base de Datos de Clientes */}
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
+                  Base de Datos de Clientes & Validación QR
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Historial de visitas, calificaciones de 10 estrellas y recompensas de fidelización
+                </p>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#c5a059]/15 border border-[#c5a059]/30 text-[#c5a059]">
+                {clients.length} clientes registrados
+              </span>
+            </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+            <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                 <tr>
                   <th className="py-2.5 px-3">Cliente</th>
@@ -977,6 +2112,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </table>
           </div>
         </div>
+      </div>
       )}
 
       {/* ============================================================== */}
@@ -1068,80 +2204,163 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* 6. HISTORIAL Y EXCEL */}
       {/* ============================================================== */}
       {activeTab === 'historial' && (
-        <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
-                Historial de Transacciones
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Registro completo de facturación con desglose de comisiones 50/50
-              </p>
+        <div className="space-y-6">
+          {/* Reactive KPI Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+                Ingresos Totales Ventas
+              </span>
+              <div className="font-display font-extrabold text-lg sm:text-2xl text-[#c5a059]">
+                ${totalSalesRevenue.toLocaleString('es-CO')}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                {sales.length} transacciones registradas
+              </span>
             </div>
 
-            <button
-              onClick={handleExportCsv}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md self-start sm:self-auto"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Descargar Archivo Excel (.csv)</span>
-            </button>
+            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
+                Ganancia Neta Sede
+              </span>
+              <div className="font-display font-extrabold text-lg sm:text-2xl text-blue-600 dark:text-blue-400">
+                ${totalShopGains.toLocaleString('es-CO')}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                Participación barbería (50%)
+              </span>
+            </div>
+
+            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+                Comisiones Pagadas
+              </span>
+              <div className="font-display font-extrabold text-lg sm:text-2xl text-amber-600 dark:text-amber-400">
+                ${totalBarberPaidCommissions.toLocaleString('es-CO')}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                Liquidadas a barberos
+              </span>
+            </div>
+
+            <div className="liquid-glass-card rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-white/15 shadow-lg">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
+                Flujo de Caja Neto
+              </span>
+              <div className={`font-display font-extrabold text-lg sm:text-2xl ${netCashFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                ${netCashFlow.toLocaleString('es-CO')}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">
+                Ventas - Egresos
+              </span>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
-                <tr>
-                  <th className="py-2.5 px-3">Factura</th>
-                  <th className="py-2.5 px-3">Fecha</th>
-                  <th className="py-2.5 px-3">Barbero</th>
-                  <th className="py-2.5 px-3">Servicios & Extras</th>
-                  <th className="py-2.5 px-3">Método</th>
-                  <th className="py-2.5 px-3 text-right">Total</th>
-                  <th className="py-2.5 px-3 text-right">Comisión 50%</th>
-                  <th className="py-2.5 px-3 text-center">Liquidación</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                {sales.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
-                    <td className="py-3 px-3 font-mono font-bold text-[#c5a059] whitespace-nowrap">
-                      {s.invoiceNumber}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">{s.date}</td>
-                    <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
-                      {s.barberName}
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
-                        {s.selectedServices.map(srv => srv.name).join(', ') || 'Productos'}
-                      </div>
-                      {s.extraProducts.length > 0 && (
-                        <div className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
-                          + {s.extraProducts.map(e => e.name).join(', ')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 capitalize text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">{s.paymentMethod}</td>
-                    <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                      ${s.total.toLocaleString('es-CO')}
-                    </td>
-                    <td className="py-3 px-3 text-right font-bold text-amber-500 whitespace-nowrap">
-                      ${s.barberCommission.toLocaleString('es-CO')}
-                    </td>
-                    <td className="py-3 px-3 text-center whitespace-nowrap">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        s.isCommissionPaid 
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
-                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
-                      }`}>
-                        {s.isCommissionPaid ? 'Pagada' : 'Pendiente'}
-                      </span>
-                    </td>
+          {/* Transactions Table Card */}
+          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
+                  Historial de Transacciones e Ingresos
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Registro completo de facturación. Haz clic en "Editar" en cualquier fila para modificar su valor, fecha o barbero.
+                </p>
+              </div>
+
+              <button
+                onClick={handleExportCsv}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md self-start sm:self-auto"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Descargar Archivo Excel (.csv)</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+              <table className="w-full text-left text-xs min-w-[820px]">
+                <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
+                  <tr>
+                    <th className="py-2.5 px-3">Factura</th>
+                    <th className="py-2.5 px-3">Fecha y Hora</th>
+                    <th className="py-2.5 px-3">Barbero</th>
+                    <th className="py-2.5 px-3">Servicios & Extras</th>
+                    <th className="py-2.5 px-3">Método</th>
+                    <th className="py-2.5 px-3 text-right">Total Ingreso</th>
+                    <th className="py-2.5 px-3 text-right">Comisión 50%</th>
+                    <th className="py-2.5 px-3 text-center">Liquidación</th>
+                    <th className="py-2.5 px-3 text-center">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                  {sales.map((s) => (
+                    <tr key={s.id} className="hover:bg-slate-100/60 dark:hover:bg-white/5 transition-colors">
+                      <td className="py-3 px-3 font-mono font-bold text-[#c5a059] whitespace-nowrap">
+                        {s.invoiceNumber}
+                      </td>
+                      <td className="py-3 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
+                        {s.date}
+                      </td>
+                      <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                        {s.barberName}
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">
+                          {s.selectedServices.map(srv => srv.name).join(', ') || 'Productos'}
+                        </div>
+                        {s.extraProducts.length > 0 && (
+                          <div className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">
+                            + {s.extraProducts.map(e => e.name).join(', ')}
+                          </div>
+                        )}
+                        {s.clientName && s.clientName !== 'Cliente General' && (
+                          <div className="text-[10px] text-[#c5a059] font-medium">
+                            Cliente: {s.clientName}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 capitalize text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap">{s.paymentMethod}</td>
+                      <td className="py-3 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                        ${s.total.toLocaleString('es-CO')}
+                      </td>
+                      <td className="py-3 px-3 text-right font-bold text-amber-500 whitespace-nowrap">
+                        ${s.barberCommission.toLocaleString('es-CO')}
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          s.isCommissionPaid 
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                        }`}>
+                          {s.isCommissionPaid ? 'Pagada' : 'Pendiente'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditSale(s)}
+                            className="px-2.5 py-1.5 rounded-lg bg-[#c5a059]/15 hover:bg-[#c5a059] text-[#c5a059] hover:text-black border border-[#c5a059]/30 font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                            title="Modificar valor, fecha y hora de este ingreso"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Modificar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSaleToDelete(s)}
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                            title="Eliminar este registro de venta"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1207,8 +2426,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <h4 className="font-display font-bold text-base text-slate-900 dark:text-white mb-4">
               Control de Stock & Alertas de Reabastecimiento
             </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10">
+              <table className="w-full text-left text-xs min-w-[640px]">
                 <thead className="bg-slate-100/90 dark:bg-[#02223a] text-slate-700 dark:text-slate-200 uppercase tracking-wider font-bold border-b border-slate-300/80 dark:border-white/15">
                   <tr>
                     <th className="py-2.5 px-3">Producto</th>
@@ -1278,89 +2497,1428 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 8. PERSONAL */}
+      {/* 8. BARBEROS / PERSONAL */}
       {/* ============================================================== */}
       {activeTab === 'personal' && (
         <div className="space-y-6">
-          {/* New Barber Form */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
-            <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-              Dar de Alta Nuevo Barbero en el Equipo
-            </h3>
-            <form onSubmit={handleCreateBarber} className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <input
-                type="text"
-                required
-                placeholder="Nombre del barbero"
-                value={newBarberName}
-                onChange={(e) => setNewBarberName(e.target.value)}
-                className="rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
-              />
-              <input
-                type="text"
-                placeholder="Especialidades (separadas por comas)"
-                value={newBarberSpecialties}
-                onChange={(e) => setNewBarberSpecialties(e.target.value)}
-                className="rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
-              />
-              <div className="flex justify-end">
+          {/* New Barber Form Card */}
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                    Ingresar Nuevo Barbero al Equipo
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Registro directo con liquidación 50/50, disponibilidad en POS y contratos legales
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateBarber} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Nombre Completo del Barbero *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Juan Esteban Pérez"
+                    value={newBarberName}
+                    onChange={(e) => setNewBarberName(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Cédula / Documento (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 1.020.954.210"
+                    value={newBarberCedula}
+                    onChange={(e) => setNewBarberCedula(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Teléfono / WhatsApp (opcional)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Ej. 312 890 1234"
+                    value={newBarberPhone}
+                    onChange={(e) => setNewBarberPhone(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Especialidades (separadas por comas)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. Fade, Barba, Corte Clásico, Diseños"
+                  value={newBarberSpecialties}
+                  onChange={(e) => setNewBarberSpecialties(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 focus:outline-none focus:border-[#c5a059]"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['Fade / Degradado', 'Barba & Perfilado', 'Cortes Clásicos', 'Colorimetría', 'Diseños', 'Cejas'].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        const current = newBarberSpecialties.trim();
+                        if (current.includes(chip)) return;
+                        setNewBarberSpecialties(current ? `${current}, ${chip}` : chip);
+                      }}
+                      className="text-[10px] bg-slate-200/70 dark:bg-[#032a48] hover:bg-[#c5a059] hover:text-black text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-md border border-slate-300 dark:border-white/10 transition-colors cursor-pointer"
+                    >
+                      + {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  El barbero ingresado se sincroniza automáticamente con la nube y estará disponible en el selector de ventas POS.
+                </div>
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#c5a059] text-black font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] text-black font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Dar de Alta</span>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Ingresar Barbero</span>
                 </button>
               </div>
             </form>
           </div>
 
           {/* Barbers Roster List */}
-          <div className="liquid-glass-card rounded-3xl p-6 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-4">
-            <h4 className="font-display font-bold text-base text-slate-900 dark:text-white">
-              Equipo de Barberos Activos
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {barbers.map((barber) => (
-                <div
-                  key={barber.id}
-                  className="p-5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 flex flex-col justify-between space-y-3 shadow-sm"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <h5 className="font-bold text-base text-slate-900 dark:text-white">{barber.name}</h5>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                        Activo
-                      </span>
-                    </div>
+          <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-white/15 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div>
+                <h4 className="font-display font-bold text-base sm:text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Equipo de Barberos</span>
+                  <span className="text-xs bg-[#c5a059]/20 text-[#c5a059] px-2.5 py-0.5 rounded-full font-bold">
+                    {barbers.length} registrados
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Gestiona el estado laboral (Activo / De Baja) y vinculación de cada barbero
+                </p>
+              </div>
 
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {barber.specialties.map((spec, i) => (
-                        <span key={i} className="text-[10px] bg-white dark:bg-[#031d33] px-2 py-0.5 rounded-md text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/15 font-medium">
-                          {spec}
-                        </span>
-                      ))}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Filter Pills */}
+                <div className="flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setBarberStatusFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      barberStatusFilter === 'all'
+                        ? 'bg-[#c5a059] text-black shadow-sm'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    Todos ({barbers.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBarberStatusFilter('active')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      barberStatusFilter === 'active'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    Activos ({barbers.filter(b => b.active !== false).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBarberStatusFilter('inactive')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      barberStatusFilter === 'inactive'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    De Baja ({barbers.filter(b => b.active === false).length})
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setAddBarberModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold text-xs flex items-center gap-1.5 shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Ingresar Barbero</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {barbers
+                .filter(b => {
+                  if (barberStatusFilter === 'active') return b.active !== false;
+                  if (barberStatusFilter === 'inactive') return b.active === false;
+                  return true;
+                })
+                .map((barber) => {
+                  const isActive = barber.active !== false;
+                  return (
+                    <div
+                      key={barber.id}
+                      className={`p-5 rounded-2xl border flex flex-col justify-between space-y-3 shadow-sm transition-all ${
+                        isActive
+                          ? 'bg-slate-100/90 dark:bg-[#02253f] border-slate-300/80 dark:border-white/20 hover:border-[#c5a059]/40'
+                          : 'bg-slate-100/50 dark:bg-[#021f35]/50 border-amber-500/30 opacity-90'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center shrink-0 ${
+                              isActive
+                                ? 'bg-[#c5a059]/20 text-[#c5a059]'
+                                : 'bg-slate-300 dark:bg-slate-700 text-slate-500'
+                            }`}>
+                              {barber.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h5 className="font-bold text-base text-slate-900 dark:text-white leading-tight">{barber.name}</h5>
+                              <span className="text-[10px] text-slate-400 font-mono">ID: {barber.id}</span>
+                            </div>
+                          </div>
+
+                          {isActive ? (
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                              Activo
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                              De Baja (Inactivo)
+                            </span>
+                          )}
+                        </div>
+
+                        {!isActive && (
+                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-300 font-medium my-2">
+                            Dado de baja del equipo. No recibe nuevas ventas en POS.
+                          </div>
+                        )}
+
+                        {(barber.phone || barber.cedula) && (
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5 mt-2">
+                            {barber.cedula && <div>Cédula: {barber.cedula}</div>}
+                            {barber.phone && <div>Tel: {barber.phone}</div>}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap gap-1 mt-2.5">
+                          {barber.specialties.map((spec, i) => (
+                            <span key={i} className="text-[10px] bg-white dark:bg-[#031d33] px-2 py-0.5 rounded-md text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/15 font-medium">
+                              {spec}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
+                        {isActive ? (
+                          <button
+                            type="button"
+                            onClick={() => setBarberToDeactivate(barber)}
+                            className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer"
+                            title="Dar de baja a este barbero (marcar como inactivo sin perder historial)"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span>Dar de baja</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmReactivateBarber(barber)}
+                            className="text-xs text-emerald-700 dark:text-emerald-300 hover:text-white font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-600 border border-emerald-500/30 transition-all cursor-pointer"
+                            title="Reactivar barbero en el equipo y disponible para POS"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Reactivar</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setBarberToDelete(barber)}
+                          className="text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          title="Eliminar permanentemente del registro"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* QUICK ADD BARBER MODAL (Accessible from any tab in Admin)       */}
+      {/* ============================================================== */}
+      {addBarberModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
+                    Ingresar Nuevo Barbero
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Alta inmediata en el equipo y disponible en POS
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddBarberModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBarber} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Nombre Completo del Barbero *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Ej. Julián David Castro"
+                  value={newBarberName}
+                  onChange={(e) => setNewBarberName(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Cédula / Documento (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej. 1.020.890.123"
+                    value={newBarberCedula}
+                    onChange={(e) => setNewBarberCedula(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Teléfono / WhatsApp (opcional)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Ej. 310 456 7890"
+                    value={newBarberPhone}
+                    onChange={(e) => setNewBarberPhone(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Especialidades
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. Fade, Barba, Corte Clásico, Diseños"
+                  value={newBarberSpecialties}
+                  onChange={(e) => setNewBarberSpecialties(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {['Fade / Degradado', 'Barba & Perfilado', 'Cortes Clásicos', 'Colorimetría', 'Diseños'].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        const current = newBarberSpecialties.trim();
+                        if (current.includes(chip)) return;
+                        setNewBarberSpecialties(current ? `${current}, ${chip}` : chip);
+                      }}
+                      className="text-[10px] bg-slate-200/70 dark:bg-[#032a48] hover:bg-[#c5a059] hover:text-black text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md border border-slate-300 dark:border-white/10 transition-colors cursor-pointer"
+                    >
+                      + {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#c5a059]/10 border border-[#c5a059]/25 text-[11px] text-slate-600 dark:text-slate-300">
+                <span className="font-bold text-[#c5a059]">Condición comercial:</span> Esquema oficial de liquidación de comisiones 50/50 sobre servicios realizados y registro automático en contratos y POS.
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddBarberModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Ingresar Barbero</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* PRINTABLE QR CODE MODAL FOR CLIENT CHECK-IN & RATING            */}
+      {/* ============================================================== */}
+      {qrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-xl liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-4 my-8 max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+                    Código QR de Asistencia y Calificación
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Legado Barber Club · Recepción y Mostrador
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQrModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Public Domain Success Banner */}
+            <div className="p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-800 dark:text-emerald-200">
+              <CheckCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <div className="font-bold flex items-center gap-1.5">
+                  <span>Enlace Público para Celulares Activo</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 rounded font-mono">
+                    {qrDomainPreset === 'cloud' ? 'Público Cloud (ais-pre)' : qrDomainPreset === 'origin' ? 'Origen Navegador' : 'Personalizado'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300/90 leading-tight">
+                  Este código QR genera el enlace público sin restricciones de desarrollador para que tus clientes puedan escanearlo desde cualquier teléfono móvil (Android o iPhone) sin marcar error.
+                </p>
+              </div>
+            </div>
+
+            {/* Printable Graphic Card */}
+            <div id="printable-qr-card" className="bg-white text-slate-950 p-5 sm:p-6 rounded-3xl shadow-xl text-center space-y-3.5 border border-slate-200">
+              <div className="space-y-1">
+                <div className="font-display font-extrabold text-xl tracking-wider text-[#011d32]">
+                  LEGADO <span className="text-[#c5a059]">BARBER CLUB</span>
+                </div>
+                <div className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">
+                  Asistencia & Fidelización Exclusiva
+                </div>
+              </div>
+
+              {/* Scannable QR Code */}
+              <div className="p-3 bg-white rounded-2xl border-2 border-slate-200 shadow-inner inline-block">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(clientPortalUrl)}&bgcolor=ffffff&color=011d32&margin=6`}
+                  alt="Código QR de Asistencia y Calificación"
+                  className="w-52 h-52 sm:w-56 sm:h-56 mx-auto object-contain rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-black uppercase tracking-wider text-slate-900">
+                  Escanea con tu celular
+                </div>
+                <p className="text-[11px] text-slate-600 leading-snug max-w-xs mx-auto">
+                  Registra tu visita en caja, califica a tu barbero y acumula visitas para cortes y limpiezas gratis.
+                </p>
+              </div>
+
+              <div 
+                onClick={handleCopyClientLink}
+                title="Click para copiar enlace"
+                className="pt-2 border-t border-slate-100 text-[11px] font-mono text-[#011d32] bg-slate-50 hover:bg-slate-100 p-2 rounded-xl truncate select-all cursor-pointer transition-colors flex items-center justify-between gap-2"
+              >
+                <span className="truncate">{clientPortalUrl}</span>
+                <span className="text-[10px] text-[#c5a059] font-bold shrink-0">
+                  {copiedLink ? '¡Copiado!' : 'Copiar'}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons Toolbar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCopyClientLink}
+                className="py-2.5 px-2 rounded-xl bg-slate-200/90 dark:bg-slate-800 hover:bg-[#c5a059] hover:text-black text-slate-800 dark:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedLink ? '¡Copiado!' : 'Copiar'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenClientLink}
+                className="py-2.5 px-2 rounded-xl bg-slate-200/90 dark:bg-slate-800 hover:bg-[#c5a059] hover:text-black text-slate-800 dark:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                title="Abrir enlace en pestaña nueva para verificar su funcionamiento"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Probar Enlace</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleShareWhatsApp}
+                className="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                title="Compartir enlace con clientes vía WhatsApp"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="py-2.5 px-2 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] text-black font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                title="Imprimir tarjeta para colocar en recepción"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Imprimir</span>
+              </button>
+            </div>
+
+            {/* Domain Configuration Toggle & Section */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-white/10 space-y-3">
+              <button
+                type="button"
+                onClick={() => setShowQrSettings(!showQrSettings)}
+                className="text-xs text-slate-600 dark:text-slate-400 hover:text-[#c5a059] dark:hover:text-[#c5a059] flex items-center gap-1.5 font-bold transition-colors cursor-pointer w-full justify-between"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Settings2 className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Ajustes de Dominio / URL del Código QR</span>
+                </span>
+                <span className="text-[10px] uppercase font-mono text-slate-400">
+                  {showQrSettings ? 'Ocultar' : 'Configurar'}
+                </span>
+              </button>
+
+              {showQrSettings && (
+                <div className="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-[#02253f] border border-slate-200 dark:border-white/10 space-y-3 text-xs animate-in fade-in duration-150">
+                  <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Selecciona cómo se genera el enlace para los clientes:
                   </div>
 
-                  {barbers.length > 1 && (
-                    <div className="pt-2 border-t border-slate-200 dark:border-white/10 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm(`¿Estás seguro de dar de baja a ${barber.name}?`)) {
-                            onDeleteBarber(barber.id);
-                          }
-                        }}
-                        className="text-xs text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Dar de baja</span>
-                      </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveQrPreset('cloud')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        qrDomainPreset === 'cloud'
+                          ? 'border-[#c5a059] bg-[#c5a059]/15 text-slate-900 dark:text-white font-bold ring-1 ring-[#c5a059]'
+                          : 'border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#c5a059]">
+                        <Globe className="w-3 h-3" />
+                        <span>Cloud Público</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        ais-pre (Recomendado para celulares de clientes)
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveQrPreset('origin')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        qrDomainPreset === 'origin'
+                          ? 'border-[#c5a059] bg-[#c5a059]/15 text-slate-900 dark:text-white font-bold ring-1 ring-[#c5a059]'
+                          : 'border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#c5a059]">
+                        <Smartphone className="w-3 h-3" />
+                        <span>Navegador Actual</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Dominio exacto donde abres el admin
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSaveQrPreset('custom')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        qrDomainPreset === 'custom'
+                          ? 'border-[#c5a059] bg-[#c5a059]/15 text-slate-900 dark:text-white font-bold ring-1 ring-[#c5a059]'
+                          : 'border-slate-200 dark:border-white/10 hover:bg-slate-200/50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-[#c5a059]">
+                        <Edit3 className="w-3 h-3" />
+                        <span>Personalizado</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Escribir tu propio dominio web o IP local
+                      </div>
+                    </button>
+                  </div>
+
+                  {qrDomainPreset === 'custom' && (
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                        Dominio o URL Base:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customQrDomain}
+                          onChange={(e) => setCustomQrDomain(e.target.value)}
+                          placeholder="https://legadobarberclub.com"
+                          className="flex-1 rounded-xl bg-white dark:bg-[#031d33] border border-slate-300 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveQrPreset('custom', customQrDomain)}
+                          className="px-3.5 py-2 bg-[#c5a059] text-black font-bold rounded-xl text-xs hover:bg-[#d4af37] transition-all cursor-pointer"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Ejemplo: https://legadobarberclub.com o http://192.168.1.100:3000
+                      </p>
+                    </div>
+                  )}
+
+                  {domainFeedbackMsg && (
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{domainFeedbackMsg}</span>
                     </div>
                   )}
                 </div>
-              ))}
+              )}
+
+              {/* Informative explanation note */}
+              <div className="p-3 rounded-2xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/50 dark:border-white/5 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+                  <Info className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>¿Por qué marcaba error en otros celulares antes?</span>
+                </div>
+                <p className="leading-relaxed">
+                  Los enlaces privados de desarrollo (<code className="font-mono text-slate-800 dark:text-slate-200">ais-dev-</code> o <code className="font-mono text-slate-800 dark:text-slate-200">localhost</code>) exigen credenciales de programador. Ahora, el código QR genera automáticamente el enlace público (<code className="font-mono text-[#c5a059]">ais-pre-</code>) accesible desde cualquier teléfono o navegador externo sin pedir clave.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CREAR NUEVO SERVICIO EN EL CATÁLOGO                     */}
+      {/* ============================================================== */}
+      {addServiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <Scissors className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
+                    Crear Nuevo Servicio
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Alta en el catálogo oficial de Legado Barber Club
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddServiceModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateService} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Nombre del Servicio *
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Ej. Ritual Barba Real & Toalla Caliente"
+                  value={newServiceName}
+                  onChange={(e) => setNewServiceName(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs focus:outline-none focus:border-[#c5a059]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Categoría *
+                  </label>
+                  <select
+                    value={newServiceCategory}
+                    onChange={(e) => setNewServiceCategory(e.target.value as ServiceCategory)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                  >
+                    <option value="esenciales">Esenciales</option>
+                    <option value="premium">Premium</option>
+                    <option value="colorimetria">Colorimetría</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Valor / Tarifa (COP) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      required
+                      placeholder="35000"
+                      value={newServicePrice}
+                      onChange={(e) => setNewServicePrice(Number(e.target.value) || 0)}
+                      className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white font-mono font-bold text-xs focus:outline-none focus:border-[#c5a059]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Duración (min) *
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    step="5"
+                    required
+                    placeholder="35"
+                    value={newServiceDuration}
+                    onChange={(e) => setNewServiceDuration(Number(e.target.value) || 30)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white font-bold text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Descripción Comercial (lo que ve el cliente)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Detalles del procedimiento, productos utilizados y técnica aplicada..."
+                  value={newServiceDescription}
+                  onChange={(e) => setNewServiceDescription(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2 text-xs focus:outline-none focus:border-[#c5a059] resize-none"
+                />
+              </div>
+
+              {/* Commission Preview 50/50 */}
+              <div className="p-3 rounded-2xl bg-[#c5a059]/10 border border-[#c5a059]/25 text-[11px] space-y-1.5">
+                <div className="font-bold text-[#c5a059] flex items-center justify-between">
+                  <span>Liquidación Comercial 50/50:</span>
+                  <span>${newServicePrice.toLocaleString('es-CO')} COP</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                  <span>· Barbero comisiona:</span>
+                  <span className="font-bold text-amber-500">${Math.round(newServicePrice * 0.5).toLocaleString('es-CO')} COP</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-300">
+                  <span>· Ganancia sede Legado:</span>
+                  <span className="font-bold text-blue-500">${Math.round(newServicePrice * 0.5).toLocaleString('es-CO')} COP</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddServiceModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Guardar Servicio</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: AJUSTE MASIVO DE TARIFAS (+ / -)                        */}
+      {/* ============================================================== */}
+      {bulkAdjustModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
+                    Ajuste Masivo de Tarifas
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Actualiza simultáneamente varias o todas las tarifas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkAdjustModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  Categoría a Modificar
+                </label>
+                <select
+                  value={bulkTargetCategory}
+                  onChange={(e) => setBulkTargetCategory(e.target.value as any)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                >
+                  <option value="todos">Todos los servicios ({services.length})</option>
+                  <option value="esenciales">Solo Esenciales ({services.filter(s => s.category === 'esenciales').length})</option>
+                  <option value="premium">Solo Experiencias Premium ({services.filter(s => s.category === 'premium').length})</option>
+                  <option value="colorimetria">Solo Colorimetría ({services.filter(s => s.category === 'colorimetria').length})</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Tipo de Modificación
+                  </label>
+                  <div className="flex gap-1.5 p-1 rounded-xl bg-slate-200/80 dark:bg-[#02253f] border border-slate-300 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkAdjustType('fixed');
+                        setBulkAdjustAmount(5000);
+                      }}
+                      className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        bulkAdjustType === 'fixed'
+                          ? 'bg-[#c5a059] text-black shadow-sm'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      Monto Fijo ($)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkAdjustType('percent');
+                        setBulkAdjustAmount(10);
+                      }}
+                      className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        bulkAdjustType === 'percent'
+                          ? 'bg-[#c5a059] text-black shadow-sm'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      Porcentaje (%)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Sentido del Ajuste
+                  </label>
+                  <div className="flex gap-1.5 p-1 rounded-xl bg-slate-200/80 dark:bg-[#02253f] border border-slate-300 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setBulkAdjustDirection('increase')}
+                      className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        bulkAdjustDirection === 'increase'
+                          ? 'bg-emerald-500 text-white shadow-sm'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      + Aumentar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkAdjustDirection('decrease')}
+                      className={`flex-1 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                        bulkAdjustDirection === 'decrease'
+                          ? 'bg-rose-500 text-white shadow-sm'
+                          : 'text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      - Rebajar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                  {bulkAdjustType === 'fixed' ? 'Valor a Ajustar en Pesos COP' : 'Porcentaje a Ajustar (%)'}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                    {bulkAdjustType === 'fixed' ? '$' : '%'}
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step={bulkAdjustType === 'fixed' ? 1000 : 1}
+                    value={bulkAdjustAmount}
+                    onChange={(e) => setBulkAdjustAmount(Math.max(1, Number(e.target.value) || 1))}
+                    className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white font-mono font-bold text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+                <div className="flex gap-1.5 pt-1">
+                  {bulkAdjustType === 'fixed' ? (
+                    [2000, 3000, 5000, 10000].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setBulkAdjustAmount(val)}
+                        className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-[#c5a059] hover:text-black cursor-pointer transition-colors"
+                      >
+                        ${val.toLocaleString('es-CO')}
+                      </button>
+                    ))
+                  ) : (
+                    [5, 10, 15, 20].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setBulkAdjustAmount(val)}
+                        className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-[#c5a059] hover:text-black cursor-pointer transition-colors"
+                      >
+                        {val}%
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Live Preview Box */}
+              <div className="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 space-y-2">
+                <span className="font-bold text-[11px] text-[#c5a059] uppercase tracking-wider block">
+                  Vista Previa del Cambio:
+                </span>
+                <div className="space-y-1.5 text-[11px]">
+                  {services
+                    .filter(s => bulkTargetCategory === 'todos' ? true : s.category === bulkTargetCategory)
+                    .slice(0, 3)
+                    .map((s) => {
+                      let previewPrice = s.price;
+                      if (bulkAdjustType === 'fixed') {
+                        previewPrice = bulkAdjustDirection === 'increase'
+                          ? s.price + bulkAdjustAmount
+                          : Math.max(0, s.price - bulkAdjustAmount);
+                      } else {
+                        const factor = bulkAdjustDirection === 'increase' ? (1 + bulkAdjustAmount / 100) : (1 - bulkAdjustAmount / 100);
+                        previewPrice = Math.round((s.price * factor) / 1000) * 1000;
+                      }
+                      return (
+                        <div key={s.id} className="flex items-center justify-between py-0.5 border-b border-slate-200/50 dark:border-white/5 last:border-none">
+                          <span className="text-slate-700 dark:text-slate-300 truncate max-w-[180px]">{s.name}</span>
+                          <div className="flex items-center gap-1.5 font-mono">
+                            <span className="text-slate-400 line-through">${s.price.toLocaleString('es-CO')}</span>
+                            <span className="text-slate-400">→</span>
+                            <span className="font-bold text-[#c5a059]">${previewPrice.toLocaleString('es-CO')}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkAdjustModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyBulkAdjust}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Sliders className="w-4 h-4" />
+                  <span>Aplicar Ajuste Masivo</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: MODIFICAR INGRESO / VENTA (VALOR, FECHA Y HORA)         */}
+      {/* ============================================================== */}
+      {editingSale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-full max-w-lg liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-slate-200/80 dark:border-white/20 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 text-[#c5a059] flex items-center justify-center font-bold">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-slate-900 dark:text-white">
+                    Modificar Ingreso de Venta
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                    {editingSale.invoiceNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSale(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedSale} className="space-y-4 text-xs">
+              {/* Monto del Ingreso */}
+              <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/15 space-y-2">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
+                  Valor Total del Ingreso ($ COP) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-base">$</span>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    step={1000}
+                    value={editSaleTotal || ''}
+                    onChange={(e) => setEditSaleTotal(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-white dark:bg-[#011d32] border border-slate-300 dark:border-white/20 text-slate-900 dark:text-white font-mono font-bold text-base focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                {/* 50/50 Live Recalculation */}
+                <div className="pt-2 border-t border-slate-200 dark:border-white/10 grid grid-cols-2 gap-2 text-center text-[11px]">
+                  <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30">
+                    <span className="text-amber-600 dark:text-amber-400 font-bold block">Comisión Barbero (50%)</span>
+                    <span className="font-bold text-amber-500 text-sm">
+                      ${Math.round(editSaleTotal * 0.5).toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-blue-500/15 border border-blue-500/30">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold block">Ganancia Sede (50%)</span>
+                    <span className="font-bold text-blue-500 text-sm">
+                      ${(editSaleTotal - Math.round(editSaleTotal * 0.5)).toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fecha y Hora Row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                    Fecha del Ingreso *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editSaleDate}
+                    onChange={(e) => setEditSaleDate(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                    Hora del Ingreso (HH:mm) *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editSaleTime}
+                    onChange={(e) => setEditSaleTime(e.target.value)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              {/* Barbero que atendió */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                  Barbero Responsable del Servicio:
+                </label>
+                <select
+                  value={editSaleBarberId}
+                  onChange={(e) => setEditSaleBarberId(e.target.value)}
+                  className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                >
+                  {barbers.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} {b.active === false ? '(De Baja)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Método de pago y Nombre de cliente */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                    Método de Pago:
+                  </label>
+                  <select
+                    value={editSalePaymentMethod}
+                    onChange={(e) => setEditSalePaymentMethod(e.target.value as any)}
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#c5a059] cursor-pointer"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                    Cliente (opcional):
+                  </label>
+                  <input
+                    type="text"
+                    value={editSaleClientName}
+                    onChange={(e) => setEditSaleClientName(e.target.value)}
+                    placeholder="Cliente General"
+                    className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-[#c5a059]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingSale(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Guardar Modificación de Ingreso</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CONFIRMAR ELIMINAR INGRESO DE VENTA                     */}
+      {/* ============================================================== */}
+      {saleToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-[calc(100vw-2rem)] sm:max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-rose-500/30 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Eliminar este registro de venta?
+                </h3>
+                <span className="font-mono text-xs text-rose-500 font-bold">
+                  {saleToDelete.invoiceNumber}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-[#02253f] border border-slate-200 dark:border-white/10 text-xs space-y-1">
+              <div><strong className="text-slate-800 dark:text-slate-200">Fecha:</strong> {saleToDelete.date}</div>
+              <div><strong className="text-slate-800 dark:text-slate-200">Barbero:</strong> {saleToDelete.barberName}</div>
+              <div><strong className="text-slate-800 dark:text-slate-200">Monto:</strong> ${saleToDelete.total.toLocaleString('es-CO')} COP</div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Esta acción eliminará el registro de la contabilidad y recalculará automáticamente los ingresos totales de la sede.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSaleToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSale}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer text-xs"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Sí, Eliminar Registro</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CONFIRMAR DAR DE BAJA A BARBERO                         */}
+      {/* ============================================================== */}
+      {barberToDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-[calc(100vw-2rem)] sm:max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-amber-500/30 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center gap-3 text-amber-500">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Dar de baja a {barberToDeactivate.name}?
+                </h3>
+                <span className="text-xs text-amber-500 font-semibold">
+                  Cambio de estado a Inactivo
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              El barbero <strong className="text-slate-900 dark:text-white">{barberToDeactivate.name}</strong> pasará a estado <strong>De Baja (Inactivo)</strong>. Ya no aparecerá en las opciones de venta del terminal POS ni en nuevas reservas, pero se mantendrán intactas todas sus comisiones, ventas históricas, contratos y liquidaciones anteriores. Podrás reactivarlo en cualquier momento con un clic.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setBarberToDeactivate(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeactivateBarber}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-amber-600/30 transition-all cursor-pointer text-xs"
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span>Confirmar y Dar de Baja</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CONFIRMAR ELIMINAR DEFINITIVAMENTE A BARBERO           */}
+      {/* ============================================================== */}
+      {barberToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-[calc(100vw-2rem)] sm:max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-rose-500/30 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Eliminar a {barberToDelete.name}?
+                </h3>
+                <span className="text-xs text-rose-500 font-semibold">
+                  Retiro permanente del equipo
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              ¿Estás seguro de eliminar permanentemente a <strong className="text-slate-900 dark:text-white">{barberToDelete.name}</strong> del catálogo de personal de Legado Barber Club?
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setBarberToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteBarber}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer text-xs"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Eliminar Definitivamente</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CONFIRMAR ELIMINAR SERVICIO DEL CATÁLOGO               */}
+      {/* ============================================================== */}
+      {serviceToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-[calc(100vw-2rem)] sm:max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-rose-500/30 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center gap-3 text-rose-500">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Eliminar este servicio?
+                </h3>
+                <span className="text-xs text-rose-500 font-semibold">
+                  Catálogo Oficial
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-[#02253f] border border-slate-200 dark:border-white/10 text-xs space-y-1">
+              <div><strong className="text-slate-800 dark:text-slate-200">Servicio:</strong> {serviceToDelete.name}</div>
+              <div><strong className="text-slate-800 dark:text-slate-200">Tarifa:</strong> ${serviceToDelete.price.toLocaleString('es-CO')} COP</div>
+              <div><strong className="text-slate-800 dark:text-slate-200">Duración:</strong> {serviceToDelete.durationMinutes} min</div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              El servicio será eliminado del catálogo de la barbería y ya no aparecerá en el terminal POS ni en el portal de clientes para reservas.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setServiceToDelete(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteService}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer text-xs"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Eliminar Servicio</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* MODAL: CONFIRMAR RESTABLECER TARIFAS ORIGINALES               */}
+      {/* ============================================================== */}
+      {showResetConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <div className="w-[calc(100vw-2rem)] sm:max-w-md liquid-glass-card rounded-3xl p-5 sm:p-7 shadow-2xl relative border border-[#c5a059]/30 space-y-5 my-auto max-h-[88vh] overflow-y-auto">
+            <div className="flex items-center gap-3 text-[#c5a059]">
+              <div className="w-10 h-10 rounded-2xl bg-[#c5a059]/20 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-6 h-6 text-[#c5a059]" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-lg text-slate-900 dark:text-white">
+                  ¿Restablecer Tarifas Originales?
+                </h3>
+                <span className="text-xs text-[#c5a059] font-semibold">
+                  Legado Barber Club
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Todas las tarifas actuales del catálogo se restablecerán a los valores estándar de lanzamiento (Corte Legado $30.000, Ritual de Barba $20.000, Limpieza Legado $35.000, etc.).
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirmModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/20 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmResetPrices}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#c5a059] to-[#9b7b38] text-black font-bold flex items-center gap-1.5 shadow-lg shadow-[#c5a059]/20 transition-all cursor-pointer text-xs"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Sí, Restablecer Todo</span>
+              </button>
             </div>
           </div>
         </div>

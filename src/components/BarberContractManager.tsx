@@ -35,6 +35,7 @@ export const BarberContractManager: React.FC<BarberContractManagerProps> = ({
   const [barberSignature, setBarberSignature] = useState<string | null>(null);
   const [adminSignature, setAdminSignature] = useState<string | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('');
+  const [contractErrorMsg, setContractErrorMsg] = useState<string>('');
 
   // When barber selector changes
   const handleSelectBarberChange = (id: string) => {
@@ -114,12 +115,13 @@ Para la entrega, desocupación o renuncia voluntaria del puesto de trabajo, el b
   };
 
   const handleSaveContract = () => {
+    setContractErrorMsg('');
     if (!barberName.trim()) {
-      alert('Por favor ingresa el nombre del barbero.');
+      setContractErrorMsg('Por favor ingresa el nombre del barbero.');
       return;
     }
     if (!barberCedula.trim()) {
-      alert('Por favor ingresa el número de documento / cédula del barbero.');
+      setContractErrorMsg('Por favor ingresa el número de documento / cédula del barbero.');
       return;
     }
 
@@ -195,6 +197,13 @@ Para la entrega, desocupación o renuncia voluntaria del puesto de trabajo, el b
             <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
               <span>{saveSuccessMsg}</span>
+            </div>
+          )}
+
+          {contractErrorMsg && (
+            <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-800 dark:text-rose-200 text-xs font-bold flex items-center gap-2 animate-shake">
+              <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+              <span>{contractErrorMsg}</span>
             </div>
           )}
 

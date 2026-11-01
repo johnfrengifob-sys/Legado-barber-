@@ -24,7 +24,9 @@ import {
   InventoryItem, 
   PromotionBroadcast,
   BarberLiquidation,
-  BarberContract 
+  BarberContract,
+  Service,
+  PriceChangeRecord
 } from '../types';
 import { 
   INITIAL_BARBERS, 
@@ -32,7 +34,8 @@ import {
   INITIAL_SALES, 
   INITIAL_EXPENSES, 
   INITIAL_INVENTORY, 
-  INITIAL_APPOINTMENTS 
+  INITIAL_APPOINTMENTS,
+  OFFICIAL_SERVICES 
 } from '../data/mockData';
 
 // Google Authentication
@@ -74,9 +77,7 @@ export const subscribeToBarbers = (onData: (data: Barber[]) => void) => {
       snapshot.forEach((docSnap) => {
         list.push({ ...docSnap.data(), id: docSnap.id } as Barber);
       });
-      if (list.length > 0) {
-        onData(list);
-      }
+      onData(list);
     },
     (err) => {
       handleFirestoreError(err, OperationType.GET, path);
@@ -179,9 +180,7 @@ export const subscribeToSales = (onData: (data: Sale[]) => void) => {
       snapshot.forEach((docSnap) => {
         list.push({ ...docSnap.data(), id: docSnap.id } as Sale);
       });
-      if (list.length > 0) {
-        onData(list);
-      }
+      onData(list);
     },
     (err) => {
       handleFirestoreError(err, OperationType.GET, path);
@@ -195,6 +194,53 @@ export const saveSaleToFirestore = async (sale: Sale) => {
     await setDoc(doc(db, 'sales', sale.id), sale);
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+export const deleteSaleFromFirestore = async (saleId: string) => {
+  const path = `sales/${saleId}`;
+  try {
+    await deleteDoc(doc(db, 'sales', saleId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+};
+
+// --- PRICE CHANGES AUDIT LOG ---
+export const subscribeToPriceChanges = (onData: (data: PriceChangeRecord[]) => void) => {
+  const path = 'price_changes';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const list: PriceChangeRecord[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ ...docSnap.data(), id: docSnap.id } as PriceChangeRecord);
+      });
+      // Sort newest first
+      list.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+      onData(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+};
+
+export const savePriceChangeToFirestore = async (record: PriceChangeRecord) => {
+  const path = `price_changes/${record.id}`;
+  try {
+    await setDoc(doc(db, 'price_changes', record.id), record);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+export const deletePriceChangeFromFirestore = async (recordId: string) => {
+  const path = `price_changes/${recordId}`;
+  try {
+    await deleteDoc(doc(db, 'price_changes', recordId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 };
 
@@ -366,6 +412,43 @@ export const deleteContractFromFirestore = async (contractId: string) => {
   }
 };
 
+// Services & Prices Collection
+export const subscribeToServices = (onData: (services: Service[]) => void) => {
+  const path = 'services';
+  return onSnapshot(
+    collection(db, 'services'),
+    (snapshot) => {
+      if (snapshot.empty) return;
+      const list: Service[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ ...docSnap.data(), id: docSnap.id } as Service);
+      });
+      onData(list);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+};
+
+export const saveServiceToFirestore = async (service: Service) => {
+  const path = `services/${service.id}`;
+  try {
+    await setDoc(doc(db, 'services', service.id), service);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+};
+
+export const deleteServiceFromFirestore = async (serviceId: string) => {
+  const path = `services/${serviceId}`;
+  try {
+    await deleteDoc(doc(db, 'services', serviceId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+};
+
 // Seed initial database collections on first startup if Firestore is empty
 export const seedFirestoreIfEmpty = async () => {
   try {
@@ -388,6 +471,9 @@ export const seedFirestoreIfEmpty = async () => {
       }
       for (const apt of INITIAL_APPOINTMENTS) {
         await setDoc(doc(db, 'appointments', apt.id), apt);
+      }
+      for (const srv of OFFICIAL_SERVICES) {
+        await setDoc(doc(db, 'services', srv.id), srv);
       }
     }
   } catch (e) {

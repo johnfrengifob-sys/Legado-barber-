@@ -102,10 +102,18 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
     e.preventDefault();
     if (!bookName.trim() || !bookPhone.trim()) return;
 
-    const serv = services.find(s => s.id === bookServiceId) || services[0];
+    const safeServices = services && services.length > 0 ? services : [
+      { id: 'corte-legado', name: 'Corte Legado Clásico', price: 30000, durationMinutes: 45, category: 'esenciales' as const }
+    ];
+    const activeBarbers = (barbers || []).filter(b => b.active !== false);
+    const safeBarbers = activeBarbers.length > 0 ? activeBarbers : (barbers && barbers.length > 0 ? barbers : [
+      { id: 'b-general', name: 'Barbero Turno Legado', active: true, specialties: ['Cortes Clásicos'] }
+    ]);
+
+    const serv = safeServices.find(s => s.id === bookServiceId) || safeServices[0];
     const barb = bookBarberId === 'any' 
-      ? barbers[Math.floor(Math.random() * barbers.length)] 
-      : barbers.find(b => b.id === bookBarberId) || barbers[0];
+      ? safeBarbers[Math.floor(Math.random() * safeBarbers.length)] 
+      : safeBarbers.find(b => b.id === bookBarberId) || safeBarbers[0];
 
     const randomCode = `LEG-${Math.floor(100 + Math.random() * 900)}`;
 
@@ -176,7 +184,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
             <h2 className="font-display font-black text-2xl sm:text-3xl text-slate-900 dark:text-white">
               Validación de Asistencia & Calificación 10★
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-200">
+            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200">
               Registra tu visita escaneando nuestro código QR en caja. Nuestra IA de fidelización acumula tus visitas y te otorga recompensas exclusivas automáticamente.
             </p>
           </div>
@@ -406,7 +414,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
             <h2 className="font-display font-black text-2xl sm:text-3xl text-slate-900 dark:text-white">
               Agendamiento de Citas en Línea
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-200">
+            <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200">
               Elige tu servicio de la carta oficial, selecciona tu barbero preferido y reserva tu hora sin llamadas.
             </p>
           </div>
@@ -484,7 +492,9 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
                     className="w-full rounded-xl bg-slate-100/90 dark:bg-[#02253f] border border-slate-300/80 dark:border-white/20 text-slate-900 dark:text-white px-3.5 py-2.5 text-xs sm:text-sm focus:outline-none focus:border-[#c5a059]"
                   >
                     <option value="any">Cualquier Barbero Disponible</option>
-                    {barbers.map(b => (
+                    {(barbers.filter(b => b.active !== false).length > 0 
+                      ? barbers.filter(b => b.active !== false) 
+                      : barbers).map(b => (
                       <option key={b.id} value={b.id}>{b.name}</option>
                     ))}
                   </select>

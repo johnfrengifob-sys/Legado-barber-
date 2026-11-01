@@ -24,26 +24,43 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions considering device pixel ratio for super-crisp lines
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
-    ctx.scale(ratio, ratio);
+    const setupCanvas = () => {
+      const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0) return;
+      
+      // Preserve current drawing if resizing
+      const prevData = canvas.toDataURL();
+      
+      canvas.width = rect.width * ratio;
+      canvas.height = rect.height * ratio;
+      ctx.scale(ratio, ratio);
 
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 2.2;
-    ctx.strokeStyle = '#011d32'; // Deep navy signature ink
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = '#011d32'; // Deep navy signature ink
 
-    if (initialSignature) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        setHasSignature(true);
-      };
-      img.src = initialSignature;
-    }
+      if (hasSignature && prevData) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        };
+        img.src = prevData;
+      } else if (initialSignature) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          setHasSignature(true);
+        };
+        img.src = initialSignature;
+      }
+    };
+
+    setupCanvas();
+
+    window.addEventListener('resize', setupCanvas);
+    return () => window.removeEventListener('resize', setupCanvas);
   }, [initialSignature]);
 
   const getCanvasCoordinates = (event: React.MouseEvent | React.TouchEvent) => {

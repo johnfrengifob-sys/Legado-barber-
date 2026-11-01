@@ -89,8 +89,20 @@ service cloud.firestore {
         && incoming().paymentMethod in ['efectivo', 'transferencia']
         && incoming().isCommissionPaid is bool;
       allow update: if isValidId(saleId)
+        && incoming().total is number && incoming().total >= 0
         && incoming().isCommissionPaid is bool;
       allow delete: if isValidId(saleId);
+    }
+
+    // Price change audit log collection
+    match /price_changes/{changeId} {
+      allow get: if isValidId(changeId);
+      allow list: if true;
+      allow create: if isValidId(changeId)
+        && incoming().serviceName is string
+        && incoming().oldPrice is number
+        && incoming().newPrice is number;
+      allow update, delete: if isValidId(changeId);
     }
 
     // Expenses collection
@@ -147,6 +159,16 @@ service cloud.firestore {
         && incoming().barberName is string && incoming().barberName.size() <= 100
         && incoming().barberCedula is string && incoming().barberCedula.size() <= 30;
       allow delete: if isValidId(contractId);
+    }
+
+    // Services catalog collection
+    match /services/{serviceId} {
+      allow get: if isValidId(serviceId);
+      allow list: if true;
+      allow create, update: if isValidId(serviceId)
+        && incoming().name is string && incoming().name.size() <= 100
+        && incoming().price is number && incoming().price >= 0;
+      allow delete: if isValidId(serviceId);
     }
   }
 }

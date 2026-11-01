@@ -155,9 +155,45 @@
         "status": { "type": "string", "enum": ["activo", "finalizado"] }
       },
       "required": ["id", "contractNumber", "barberId", "barberName", "barberCedula", "barberPhone", "percentageCut", "noticeDays", "termsAccepted"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Barbershop service offering with price and duration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "enum": ["esenciales", "premium", "colorimetria"] },
+        "price": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "description": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name", "category", "price", "durationMinutes"]
+    },
+    "PriceChangeRecord": {
+      "title": "PriceChangeRecord",
+      "description": "Audit log of service price modifications over time.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "serviceId": { "type": "string", "maxLength": 128 },
+        "serviceName": { "type": "string", "maxLength": 100 },
+        "oldPrice": { "type": "number" },
+        "newPrice": { "type": "number" },
+        "difference": { "type": "number" },
+        "date": { "type": "string", "maxLength": 50 },
+        "time": { "type": "string", "maxLength": 50 },
+        "modifiedBy": { "type": "string", "maxLength": 100 },
+        "reason": { "type": "string", "maxLength": 255 }
+      },
+      "required": ["id", "serviceName", "oldPrice", "newPrice", "date"]
     }
   },
   "firestore": {
+    "/price_changes/{changeId}": {
+      "schema": "PriceChangeRecord",
+      "description": "Audit log history of price modifications."
+    },
     "/barbers/{barberId}": {
       "schema": "Barber",
       "description": "Collection of barber profiles available for bookings and POS."
@@ -193,6 +229,10 @@
     "/contracts/{contractId}": {
       "schema": "BarberContract",
       "description": "Collection of booth rental contracts and terms accepted by barbers."
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Collection of barbershop services and official prices."
     }
   }
 }

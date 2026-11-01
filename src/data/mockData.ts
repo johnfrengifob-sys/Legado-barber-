@@ -359,9 +359,9 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
 ];
 
 export const SOCIAL_LINKS = {
-  facebook: 'https://facebook.com/legadobarberclub',
-  instagram: 'https://instagram.com/legadobarberclub',
-  tiktok: 'https://tiktok.com/@legadobarberclub'
+  facebook: 'https://www.facebook.com/profile.php?id=61590237701835',
+  instagram: 'https://www.instagram.com/legado_barberclub/',
+  tiktok: 'https://www.tiktok.com/@legado_barberclub?_r=1&_t=ZS-9B1AAxU6gJ2'
 };
 
 export const TIME_SLOTS = [

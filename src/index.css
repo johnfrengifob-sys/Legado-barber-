@@ -3,24 +3,28 @@
 
 @layer base {
   :root {
-    --bg-page: #e0edf8; /* Refined pastel blue */
-    --text-primary: #0f172a;
-    --glass-bg: rgba(255, 255, 255, 0.84);
-    --glass-border: rgba(186, 210, 232, 0.8);
-    --glass-card: rgba(255, 255, 255, 0.94);
-    /* Wavy texture: airy ocean waves in navy blue (#011d32) on pastel blue, gentle & spaced */
-    --wavy-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cpath d='M0 65 Q 150 15, 300 65 T 600 65 M0 145 Q 150 195, 300 145 T 600 145 M0 225 Q 150 175, 300 225 T 600 225 M0 295 Q 150 340, 300 295 T 600 295' fill='none' stroke='%23011d32' stroke-width='1.25' stroke-opacity='0.09' stroke-linecap='round'/%3E%3C/svg%3E");
+    --bg-page: #011d32; /* Azul oscuro en ambos modos */
+    --text-primary: #f8fafc;
+    /* En Modo Claro: Contenedores blancos radiantes con cristal líquido pulido */
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(255, 255, 255, 0.95);
+    --glass-card: rgba(255, 255, 255, 0.96);
+    --glass-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.8);
+    /* Fondo azul oscuro con líneas blancas nítidas y elegantes */
+    --wavy-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cpath d='M0 65 Q 150 15, 300 65 T 600 65 M0 145 Q 150 195, 300 145 T 600 145 M0 225 Q 150 175, 300 225 T 600 225 M0 295 Q 150 340, 300 295 T 600 295' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-opacity='0.20' stroke-linecap='round'/%3E%3C/svg%3E");
   }
 
   .dark {
-    --bg-page: #011d32;
+    --bg-page: #011d32; /* Azul oscuro en modo oscuro */
     --text-primary: #f8fafc;
-    --glass-bg: rgba(3, 28, 49, 0.92);
+    /* En Modo Oscuro: Contenedores azul marino profundo de alta gama */
+    --glass-bg: rgba(3, 28, 49, 0.94);
     --glass-border: rgba(255, 255, 255, 0.18);
-    --glass-card: rgba(6, 39, 68, 0.94);
+    --glass-card: rgba(6, 39, 68, 0.96);
+    --glass-shadow: 0 14px 38px 0 rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
     color-scheme: dark;
-    /* In dark mode, invert colors: luminous soft white ocean waves on dark navy */
-    --wavy-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cpath d='M0 65 Q 150 15, 300 65 T 600 65 M0 145 Q 150 195, 300 145 T 600 145 M0 225 Q 150 175, 300 225 T 600 225 M0 295 Q 150 340, 300 295 T 600 295' fill='none' stroke='%23ffffff' stroke-width='1.25' stroke-opacity='0.05' stroke-linecap='round'/%3E%3C/svg%3E");
+    /* Modo oscuro: fondo azul oscuro con líneas blancas */
+    --wavy-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300' viewBox='0 0 600 300'%3E%3Cpath d='M0 65 Q 150 15, 300 65 T 600 65 M0 145 Q 150 195, 300 145 T 600 145 M0 225 Q 150 175, 300 225 T 600 225 M0 295 Q 150 340, 300 295 T 600 295' fill='none' stroke='%23ffffff' stroke-width='1.8' stroke-opacity='0.16' stroke-linecap='round'/%3E%3C/svg%3E");
   }
 
   body {
@@ -55,14 +59,16 @@
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: var(--glass-shadow);
 }
 
 .liquid-glass-glow {
   box-shadow: 0 10px 40px -10px rgba(197, 160, 89, 0.35);
 }
 
-/* Dark mode typography and contrast enhancements */
+/* ==============================================================
+   DARK MODE CONTAINER AND TYPOGRAPHY STYLES
+   ============================================================== */
 .dark {
   /* Elevate secondary text to WCAG AA 4.5:1+ contrast on #011d32 / #062744 */
   & .text-slate-500 {
@@ -107,11 +113,94 @@
     color: #ffffff;
   }
 
-  /* Table headers and rows in dark mode */
+  /* Table headers in dark mode */
   & thead.bg-slate-900\/70,
   & thead.bg-slate-100\/70 {
     background-color: #02223a !important;
     color: #cbd5e1 !important;
+  }
+}
+
+/* ==============================================================
+   LIGHT MODE CONTAINER AND TYPOGRAPHY STYLES (WHITE GLASS CARDS)
+   ============================================================== */
+html:not(.dark) {
+  /* Inside white containers in light mode, text is rich dark slate */
+  & .liquid-glass-card,
+  & .liquid-glass {
+    & .text-slate-900 {
+      color: #0f172a !important;
+    }
+    & .text-slate-800 {
+      color: #1e293b !important;
+    }
+    & .text-slate-700 {
+      color: #334155 !important;
+    }
+    & .text-slate-600 {
+      color: #475569 !important;
+    }
+    & .text-slate-500 {
+      color: #64748b !important;
+    }
+    & .border-slate-200\/80,
+    & .border-slate-200 {
+      border-color: rgba(226, 232, 240, 0.9) !important;
+    }
+    & .border-slate-300\/80,
+    & .border-slate-300 {
+      border-color: rgba(203, 213, 225, 0.9) !important;
+    }
+    & .bg-slate-100\/90,
+    & .bg-slate-100\/70,
+    & .bg-slate-100 {
+      background-color: #f1f5f9 !important;
+      color: #0f172a;
+    }
+
+    /* Form controls in light mode containers: crisp white background with dark text */
+    & input,
+    & textarea,
+    & select {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    & input:focus,
+    & textarea:focus,
+    & select:focus {
+      border-color: #c5a059 !important;
+      box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.3) !important;
+    }
+    & input::placeholder,
+    & textarea::placeholder {
+      color: #94a3b8 !important;
+    }
+    & select option {
+      background-color: #ffffff;
+      color: #0f172a;
+    }
+
+    /* Table headers in light mode containers */
+    & thead.bg-slate-900\/70,
+    & thead.bg-slate-100\/70 {
+      background-color: #f8fafc !important;
+      color: #334155 !important;
+    }
+  }
+
+  /* Top Navigation header in light mode */
+  & header.liquid-glass {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9) !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2) !important;
+
+    & .text-slate-900 {
+      color: #0f172a !important;
+    }
+    & .text-slate-600 {
+      color: #475569 !important;
+    }
   }
 }
 
@@ -129,4 +218,22 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #c5a059;
+}
+
+/* Print Styles for QR Counter Card & Receipts */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  header, nav, button, .no-print {
+    display: none !important;
+  }
+  #printable-qr-card {
+    box-shadow: none !important;
+    border: 2px solid #011d32 !important;
+    max-width: 480px !important;
+    margin: 2rem auto !important;
+    page-break-inside: avoid;
+  }
 }

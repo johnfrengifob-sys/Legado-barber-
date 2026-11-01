@@ -1,5 +1,18 @@
 export type ServiceCategory = 'esenciales' | 'premium' | 'colorimetria';
 
+export interface PriceChangeRecord {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  oldPrice: number;
+  newPrice: number;
+  difference: number;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm:ss
+  modifiedBy: string;
+  reason?: string;
+}
+
 export interface Service {
   id: string;
   name: string;
